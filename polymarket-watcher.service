@@ -1,0 +1,43 @@
+[Unit]
+Description=Polymarket Order Book Watcher
+Documentation=https://github.com/Billthekidz/symmetrical-carnival
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# ── Identity ──────────────────────────────────────────────────────────────────
+# Run as a dedicated, unprivileged user for isolation.
+# Create it first: sudo useradd --system --no-create-home polymarket-watcher
+User=polymarket-watcher
+Group=polymarket-watcher
+
+# ── Working directory & environment ───────────────────────────────────────────
+# Adjust WorkingDirectory and ExecStart to match your installation path.
+WorkingDirectory=/opt/polymarket-watcher
+
+# Point to the Python interpreter inside the virtual environment, if used.
+ExecStart=/opt/polymarket-watcher/.venv/bin/python \
+    -m polymarket_watcher \
+    /opt/polymarket-watcher/config.yaml
+
+# ── Restart policy ────────────────────────────────────────────────────────────
+Restart=on-failure
+RestartSec=10s
+StartLimitIntervalSec=120s
+StartLimitBurst=5
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+# All output goes to journald; view with: journalctl -u polymarket-watcher -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=polymarket-watcher
+
+# ── Security hardening ────────────────────────────────────────────────────────
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
