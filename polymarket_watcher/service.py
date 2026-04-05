@@ -40,7 +40,7 @@ class WatcherService:
         """Resolve the market, build watchers, and start the event loop."""
         cfg = self._config
         slug = cfg.market.slug
-        direction = cfg.market.direction.lower()
+        direction = cfg.market.direction  # already normalised by MarketConfig
 
         logger.info("Resolving token IDs for slug %r…", slug)
         yes_token_id, no_token_id = get_token_ids_for_slug(slug)

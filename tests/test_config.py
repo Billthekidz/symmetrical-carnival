@@ -96,3 +96,32 @@ class TestConfigFromYaml:
 
         cfg = Config.from_yaml(cfg_file)
         assert cfg.actions.log_enabled is False
+
+
+class TestMarketConfigDirectionValidation:
+    @pytest.mark.parametrize("direction", ["yes", "no", "long", "short"])
+    def test_valid_directions_accepted(self, direction: str) -> None:
+        cfg = MarketConfig(slug="some-market", direction=direction)
+        assert cfg.direction == direction
+
+    @pytest.mark.parametrize("direction", ["YES", "No", "LONG", "Short"])
+    def test_direction_normalised_to_lowercase(self, direction: str) -> None:
+        cfg = MarketConfig(slug="some-market", direction=direction)
+        assert cfg.direction == direction.lower()
+
+    def test_direction_whitespace_stripped(self) -> None:
+        cfg = MarketConfig(slug="some-market", direction="  yes  ")
+        assert cfg.direction == "yes"
+
+    @pytest.mark.parametrize("direction", ["yess", "up", "down", "", " "])
+    def test_invalid_direction_raises(self, direction: str) -> None:
+        with pytest.raises(ValueError, match="Invalid direction"):
+            MarketConfig(slug="some-market", direction=direction)
+
+    def test_invalid_direction_from_yaml_raises(self, tmp_path: Path) -> None:
+        data = {"market": {"slug": "test-market", "direction": "maybe"}}
+        cfg_file = tmp_path / "config.yaml"
+        cfg_file.write_text(yaml.dump(data))
+
+        with pytest.raises(ValueError, match="Invalid direction"):
+            Config.from_yaml(cfg_file)

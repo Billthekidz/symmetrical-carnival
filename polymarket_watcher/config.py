@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+_VALID_DIRECTIONS = frozenset({"yes", "long", "no", "short"})
+
 import yaml
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
@@ -17,6 +19,14 @@ class MarketConfig:
 
     slug: str = "will-trump-win-in-2024"
     direction: str = "yes"  # "yes"/"long" or "no"/"short"
+
+    def __post_init__(self) -> None:
+        self.direction = self.direction.strip().lower()
+        if self.direction not in _VALID_DIRECTIONS:
+            raise ValueError(
+                f"Invalid direction {self.direction!r}. "
+                f"Must be one of: {sorted(_VALID_DIRECTIONS)}"
+            )
 
 
 @dataclass
