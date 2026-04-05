@@ -2,13 +2,9 @@
 
 Usage
 -----
-Run directly::
+Run as a module::
 
     python -m polymarket_watcher [path/to/config.yaml]
-
-Or via the installed script defined in ``setup.cfg`` / ``pyproject.toml``::
-
-    polymarket-watcher [path/to/config.yaml]
 """
 
 from __future__ import annotations
