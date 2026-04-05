@@ -1,0 +1,80 @@
+# Deploy the main branch to a DigitalOcean Droplet.
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#
+#   DO_SSH_PRIVATE_KEY   – Private SSH key whose public half is in the
+#                          droplet's ~/.ssh/authorized_keys.
+#   DO_HOST              – Droplet IP address or hostname (e.g. 198.51.100.10).
+#   DO_USER              – SSH user on the droplet (e.g. "root" or "deploy").
+#
+# Optional Secret:
+#   DO_PORT              – SSH port (defaults to 22 when not set).
+#
+# The workflow:
+#   1. Runs the test suite – a failing test blocks the deploy.
+#   2. SSHs into the droplet, pulls the latest code, installs dependencies,
+#      and restarts the systemd service.
+
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # ── Job 1: run tests ────────────────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  # ── Job 2: deploy ───────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Droplet via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.DO_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            DEPLOY_DIR=/opt/polymarket-watcher
+
+            # ── Pull latest code ───────────────────────────────────────────
+            cd "$DEPLOY_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+
+            # ── Install / update Python dependencies ───────────────────────
+            "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r requirements.txt
+
+            # ── Reload and restart the systemd service ─────────────────────
+            sudo systemctl daemon-reload
+            sudo systemctl restart polymarket-watcher
+            sudo systemctl --no-pager status polymarket-watcher
