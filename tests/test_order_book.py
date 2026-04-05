@@ -112,6 +112,10 @@ class TestApplyPriceChange:
         prices = [lv.price for lv in populated_book.bids]
         assert prices == sorted(prices, reverse=True)
 
+    def test_invalid_side_raises(self, populated_book: OrderBook) -> None:
+        with pytest.raises(ValueError, match="Unexpected order-book side"):
+            populated_book.apply_price_change("0.50", "10", "INVALID")
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Price-support calculation

@@ -76,7 +76,12 @@ class OrderBook:
         """
         p = Decimal(price)
         s = Decimal(size)
-        levels: List[OrderLevel] = self.bids if side == "BUY" else self.asks
+        if side == "BUY":
+            levels: List[OrderLevel] = self.bids
+        elif side == "SELL":
+            levels = self.asks
+        else:
+            raise ValueError(f"Unexpected order-book side: {side!r}")
 
         # Remove any existing level at this price.
         levels[:] = [lv for lv in levels if lv.price != p]
