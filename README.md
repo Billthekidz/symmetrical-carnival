@@ -150,8 +150,8 @@ chown -R <deploy_user>:<deploy_user> /opt/polymarket-watcher
 python3.12 -m venv /opt/polymarket-watcher/.venv
 /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
 
-# 5. Copy and configure config.yaml
-cp /opt/polymarket-watcher/config.yaml /opt/polymarket-watcher/config.yaml
+# 5. Copy and edit config.yaml with your market slug and settings
+cp /opt/polymarket-watcher/config.yaml /opt/polymarket-watcher/config.yaml.example
 # Edit /opt/polymarket-watcher/config.yaml with your market slug etc.
 
 # 6. Install the systemd unit file
