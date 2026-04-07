@@ -61,10 +61,10 @@ jobs:
       - name: Deploy to Droplet via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: $DO_HOST
-          username: $DO_USER
+          host: ${{ vars.DO_HOST }}
+          username: ${{ vars.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
-          port: ${{ secrets.DO_PORT || 22 }}
+          port: ${{ vars.DO_PORT || 22 }}
           script: |
             set -euo pipefail
 
