@@ -61,8 +61,8 @@ jobs:
       - name: Deploy to Droplet via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.DO_HOST }}
-          username: ${{ secrets.DO_USER }}
+          host: $DO_HOST
+          username: $DO_USER
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           port: ${{ secrets.DO_PORT || 22 }}
           script: |
