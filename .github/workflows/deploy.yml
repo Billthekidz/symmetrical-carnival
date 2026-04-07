@@ -59,7 +59,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy to Droplet via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        uses: JimCronqvist/action-ssh@v3
         with:
           host: ${{ vars.DO_HOST }}
           username: ${{ vars.DO_USER }}
