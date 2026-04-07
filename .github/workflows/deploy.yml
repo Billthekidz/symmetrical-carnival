@@ -80,9 +80,9 @@ jobs:
             DEPLOY_DIR=/opt/polymarket-watcher
 
             # ── Install / update Python dependencies ───────────────────────
-            "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r requirements.txt
+            "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r $DEPLOY_DIR/requirements.txt
 
             # ── Reload and restart the systemd service ─────────────────────
             sudo systemctl daemon-reload
             sudo systemctl restart polymarket-watcher
-            sudo systemctl --no-pager status polymarket-watcher
+            sudo systemctl status polymarket-watcher
