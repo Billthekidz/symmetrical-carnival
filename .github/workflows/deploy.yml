@@ -58,8 +58,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to Droplet via SSH
-        uses: JimCronqvist/action-ssh@v3
+      - name: Upload source code via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ vars.DO_HOST }}
+          username: ${{ vars.DO_USER }}
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          port: ${{ vars.DO_PORT || 22 }}
+          source: "."
+          target: "/opt/polymarket-watcher"
+          rm: false
+
+      - name: Run deployment commands via SSH
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ vars.DO_HOST }}
           username: ${{ vars.DO_USER }}
@@ -69,11 +80,6 @@ jobs:
             set -euo pipefail
 
             DEPLOY_DIR=/opt/polymarket-watcher
-
-            # ── Pull latest code ───────────────────────────────────────────
-            cd "$DEPLOY_DIR"
-            git fetch origin main
-            git reset --hard origin/main
 
             # ── Install / update Python dependencies ───────────────────────
             "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r requirements.txt
