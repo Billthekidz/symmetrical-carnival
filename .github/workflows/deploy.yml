@@ -77,9 +77,6 @@ jobs:
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           port: ${{ vars.DO_PORT || 22 }}
           script: |
-            #!/bin/bash
-            set -euo pipefail
-
             DEPLOY_DIR=/opt/polymarket-watcher
 
             # ── Install / update Python dependencies ───────────────────────
