@@ -1,0 +1,43 @@
+# Trigger a Copilot coding-agent task whenever non-documentation code
+# is pushed to main.  The agent reviews the new commits and updates
+# README.md, ARCHITECTURE.md, and the docs/ directory accordingly.
+#
+# "Documentation-only" pushes (changes limited to *.md files or docs/**)
+# are ignored so the agent is not spun up unnecessarily.
+
+name: Update documentation via Copilot agent
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+jobs:
+  create-agent-task:
+    name: Create Copilot agent task
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Copilot agent issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "docs: update documentation for commit ${{ github.sha }}" \
+            --body "You are triggered on a code update to main. Review the commits since last documentation update.
+Analyze the codebase and find locations to documentations (including readme and docs/).  Note the focus of each documentation type.
+Finally, based on the changes to main update the documentation accordingly.
+
+Triggered by: ${{ github.sha }}
+Pushed by: ${{ github.actor }}" \
+            --assignee "copilot"
