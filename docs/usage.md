@@ -143,6 +143,9 @@ Go to **Settings → Secrets and variables → Actions** and add:
 | `DO_HOST` | Variable | Droplet IP address or hostname | `198.51.100.10` |
 | `DO_USER` | Variable | SSH user with access to `/opt/polymarket-watcher` | `deploy` |
 | `DO_PORT` | Variable *(optional)* | SSH port — omit to default to `22` | `22` |
+| `COPILOT_TOKEN` | Secret | Fine-grained PAT with the **Copilot Requests** permission (used by the documentation-update workflow) | `github_pat_…` |
+
+> **How to create `COPILOT_TOKEN`:** Go to *GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens*, generate a token scoped to this repository, and grant the **Copilot Requests (Read & Write)** permission.  See the [GitHub docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/automate-with-actions) for details.
 
 #### Generating a dedicated deploy key
 
@@ -163,3 +166,39 @@ cat ~/.ssh/do_deploy_key
 ssh <deploy_user>@<droplet_ip>
 journalctl -u polymarket-watcher -f
 ```
+
+---
+
+## Automated Documentation Updates
+
+Whenever a non-documentation commit lands on `main`, the workflow
+`.github/workflows/update-docs.yml` automatically runs a Copilot CLI agent that
+reviews the changes and updates `README.md`, `ARCHITECTURE.md`, and the `docs/`
+directory.
+
+### How it works
+
+```
+push to main (non-doc files only)
+    │
+    ▼
+[update-docs job]
+    1. Finds the last commit whose message contains "[documentation]"
+    2. Installs @github/copilot via npm
+    3. Runs: copilot -p "…review commits since <sha>…update docs…"
+    4. Agent commits updated docs with "[documentation]" in the message
+```
+
+Self-triggering is prevented by two mechanisms:
+- **`paths-ignore`** — pushes that only touch `*.md` or `docs/**` never start
+  the workflow.
+- **`if` condition** — the job is skipped when the head commit message already
+  contains `[documentation]` (i.e. the agent's own commit).
+
+### Authentication
+
+The Copilot CLI uses a fine-grained PAT rather than `GITHUB_TOKEN`.  Store it
+as the `COPILOT_TOKEN` repository secret (see the secrets table above).  The
+PAT must have the **Copilot Requests** permission.
+
+Reference: <https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/automate-with-actions>
