@@ -1,0 +1,77 @@
+# Trigger a Copilot CLI task whenever non-documentation code is pushed to main.
+# The agent reviews commits since the last [documentation]-tagged commit and
+# updates README.md, ARCHITECTURE.md, and the docs/ directory accordingly.
+#
+# Self-triggering is prevented by two complementary mechanisms:
+#   1. paths-ignore – doc-only pushes never start this workflow.
+#   2. if condition  – skips the job when the head commit already contains
+#                      "[documentation]" in its message (i.e. the agent's
+#                      own commit landed on main).
+#
+# Authentication: Copilot CLI requires a fine-grained PAT with the
+# "Copilot Requests" permission, stored as the COPILOT_TOKEN repository secret.
+# See: https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/automate-with-actions
+
+name: Update documentation via Copilot agent
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+jobs:
+  update-docs:
+    name: Update documentation with Copilot
+    runs-on: ubuntu-latest
+    # Skip runs caused by the agent's own [documentation] commits.
+    if: ${{ !contains(github.event.head_commit.message, '[documentation]') }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Find last [documentation] commit
+        id: last-doc
+        run: |
+          LAST=$(git log --oneline --fixed-strings --grep='[documentation]' -1 --format='%H' 2>/dev/null || true)
+          echo "sha=${LAST}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js environment
+        uses: actions/setup-node@v4
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run Copilot documentation agent
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN }}
+          LAST_DOC_SHA: ${{ steps.last-doc.outputs.sha }}
+        run: |
+          if [ -n "$LAST_DOC_SHA" ]; then
+            SINCE_REF="since commit ${LAST_DOC_SHA}"
+          else
+            SINCE_REF="since the beginning of the repository"
+          fi
+
+          copilot -p "You are triggered on a code update to main. \
+          Review the git log ${SINCE_REF}. \
+          Analyze the codebase and find locations of documentation (including README.md and docs/). \
+          Note the focus of each documentation type. \
+          Based on the changes to main, update the documentation accordingly. \
+          When committing your documentation changes, include the tag [documentation] in the commit message \
+          so that the next agent run can use it as the reference point for the last documentation update." \
+          --allow-tool='shell(git:*)' \
+          --allow-tool=write \
+          --no-ask-user
