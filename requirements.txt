@@ -1,11 +1,7 @@
-# Runtime dependencies
+# Runtime dependencies (server / Droplet)
 websockets>=12.0
 requests>=2.31.0
 PyYAML>=6.0
-
-# Admin CLI/TUI (optional — only needed if you use polymarket_watcher.admin)
-click>=8.0
-textual>=0.40
 
 # Development / testing
 pytest>=8.0

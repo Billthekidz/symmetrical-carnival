@@ -219,11 +219,12 @@ existing SSH key — no extra credentials required.
 
 ### Installing the extra dependencies
 
-The admin tool requires two additional packages (`click` and `textual`) that
-are already listed in `requirements.txt`:
+The admin tool requires two additional packages (`click` and `textual`).
+Install them on your **local machine** (e.g. your Windows laptop) — not on the
+Droplet:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-admin.txt
 ```
 
 ### One-time setup — configure the remote host

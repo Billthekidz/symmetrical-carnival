@@ -64,6 +64,9 @@ python -m polymarket_watcher config.yaml
 Administer the service running on DigitalOcean from your local machine:
 
 ```bash
+# Install admin deps on your local machine (not needed on the Droplet)
+pip install -r requirements-admin.txt
+
 # First-time setup — stores host in ~/.config/polymarket-watcher/admin.yaml
 python -m polymarket_watcher.admin init
 
