@@ -11,6 +11,12 @@ symmetrical-carnival/
 │   ├── websocket_client.py    ← auto-reconnecting WebSocket client
 │   ├── service.py             ← orchestrator
 │   ├── main.py                ← entry point / signal handling
+│   ├── admin/                 ← local admin CLI/TUI (SSH-based)
+│   │   ├── admin_config.py    ← per-user admin tool config
+│   │   ├── cli.py             ← Click-based CLI (status/logs/restart/config)
+│   │   ├── editor.py          ← Windows-friendly editor selection
+│   │   ├── ssh.py             ← ssh/scp subprocess helpers
+│   │   └── tui.py             ← Textual streaming log viewer
 │   ├── watchers/
 │   │   ├── base_watcher.py          ← abstract BaseWatcher
 │   │   └── price_support_watcher.py ← monitors bid-side support drop
@@ -202,3 +208,131 @@ as the `COPILOT_TOKEN` repository secret (see the secrets table above).  The
 PAT must have the **Copilot Requests** permission.
 
 Reference: <https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/automate-with-actions>
+
+---
+
+## Admin CLI/TUI
+
+The `polymarket_watcher.admin` module is a **local** tool you run on your
+laptop (or any machine that has SSH access to the Droplet).  It uses your
+existing SSH key — no extra credentials required.
+
+### Installing the extra dependencies
+
+The admin tool requires two additional packages (`click` and `textual`) that
+are already listed in `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+```
+
+### One-time setup — configure the remote host
+
+Run `init` once to record the Droplet's address in your per-user config file:
+
+```bash
+python -m polymarket_watcher.admin init
+```
+
+You will be prompted for:
+
+| Setting | Default | Description |
+|---|---|---|
+| `host` | *(required)* | IP address or hostname of the Droplet |
+| `user` | `admin` | SSH user on the Droplet |
+| `unit` | `polymarket-watcher` | systemd unit name |
+| `remote_config` | `/opt/polymarket-watcher/config.yaml` | Path to the service config file |
+
+The config file is stored in a standard per-user location — you can always
+check where with:
+
+```bash
+python -m polymarket_watcher.admin config-path
+```
+
+You can also set the path explicitly via `--config-file` or the
+`PMW_ADMIN_CONFIG` environment variable.
+
+### Remote Droplet prerequisites
+
+The `admin` user on the Droplet needs:
+
+1. **SSH access** — add your public key to `/home/admin/.ssh/authorized_keys`.
+
+2. **Journal read permission** — add the user to the `systemd-journal` group:
+
+   ```bash
+   usermod -aG systemd-journal admin
+   ```
+
+3. **Passwordless sudo** for restart and status — create
+   `/etc/sudoers.d/polymarket-watcher-admin`:
+
+   ```
+   admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher
+   ```
+
+   ```bash
+   chmod 440 /etc/sudoers.d/polymarket-watcher-admin
+   ```
+
+### Commands
+
+#### `status` — show service status
+
+```bash
+python -m polymarket_watcher.admin status
+```
+
+Runs `systemctl status polymarket-watcher --no-pager` on the remote host and
+prints the output.
+
+#### `logs` — streaming log viewer (TUI)
+
+```bash
+python -m polymarket_watcher.admin logs
+```
+
+Opens a full-screen terminal UI that streams `journalctl -f` output over SSH.
+Press **`q`** to quit.
+
+#### `restart` — restart the service
+
+```bash
+python -m polymarket_watcher.admin restart
+```
+
+Prompts for confirmation, then runs `sudo systemctl restart polymarket-watcher`
+on the remote host.
+
+#### `config edit` — edit the remote config locally
+
+```bash
+python -m polymarket_watcher.admin config edit
+```
+
+1. Downloads `/opt/polymarket-watcher/config.yaml` from the Droplet.
+2. Opens it in your local editor:
+   - Uses `$EDITOR` if set.
+   - Falls back to **VS Code** (`code --wait`) if found on PATH.
+   - Falls back to **Notepad** on Windows.
+   - Falls back to **nano** then **vi** on POSIX.
+3. Validates the edited file (YAML parse + service config schema check).
+4. Uploads the file back **atomically** (writes `.tmp` then moves on the remote).
+5. Prompts whether to restart the service immediately.
+
+### Editor selection (Windows-friendly)
+
+No manual editor configuration is needed on a Windows machine with VS Code
+installed.  The tool detects `code` on PATH and passes `--wait` so the CLI
+waits for you to close the editor tab before continuing.
+
+If you prefer a different editor, set the `EDITOR` environment variable:
+
+```bash
+# PowerShell
+$env:EDITOR = "notepad++"
+
+# cmd.exe
+set EDITOR=notepad++
+```
