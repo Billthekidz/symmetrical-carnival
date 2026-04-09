@@ -33,8 +33,15 @@ def find_editor() -> list[str]:
         # $EDITOR may be a multi-word string like "emacsclient -t"
         return env_editor.split()
 
-    if _which("code"):
-        return ["code", "--wait"]
+    if sys.platform == "win32":
+        # Prefer the cmd shim; it’s the most reliable way to launch VS Code from subprocess
+        if _which("code.cmd"):
+            return ["code.cmd", "--wait"]
+        if _which("code"):
+            return ["code", "--wait"]
+    else:
+        if _which("code"):
+            return ["code", "--wait"]
 
     if sys.platform == "win32":
         return ["notepad"]
@@ -59,4 +66,5 @@ def open_editor(file_path: Path) -> int:
         raise RuntimeError(
             f"Editor not found: {cmd[0]!r}.  "
             "Set the $EDITOR environment variable to a valid editor."
+            "VS Code user on Windows try `$EDITOR=code.cmd --wait`."
         )
