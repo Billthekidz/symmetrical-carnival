@@ -69,7 +69,11 @@ def ssh_stream(cfg: AdminConfig, remote_cmd: Sequence[str]) -> subprocess.Popen:
         full_cmd,
         stdout=subprocess.PIPE,
         stderr=None,  # inherit
-        text=True,
+        # Always decode as UTF-8 regardless of the host locale (e.g. GBK on
+        # Chinese Windows).  Replace any byte sequences that are not valid
+        # UTF-8 instead of raising a UnicodeDecodeError.
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,  # line-buffered
         stdin=subprocess.DEVNULL,
     )
