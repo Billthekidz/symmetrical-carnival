@@ -51,6 +51,10 @@ def ssh_run(
         capture_output=capture,
         text=capture,
         check=check,
+        # Redirect stdin from /dev/null so SSH does not allocate a pseudo-TTY
+        # and does not block waiting for local input after the remote command
+        # exits (which caused "status" to hang indefinitely).
+        stdin=subprocess.DEVNULL,
     )
 
 
