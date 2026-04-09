@@ -173,7 +173,7 @@ def status(ctx: click.Context) -> None:
 @cli.command()
 @click.pass_context
 def logs(ctx: click.Context) -> None:
-    """Stream live logs in a terminal UI (press q to quit)."""
+    """Stream live journalctl output to the terminal (Ctrl+C to stop)."""
     cfg = _load_cfg(ctx.obj.get("config_file"))
     try:
         cfg.require_host()

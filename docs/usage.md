@@ -219,7 +219,7 @@ existing SSH key — no extra credentials required.
 
 ### Installing the extra dependencies
 
-The admin tool requires two additional packages (`click` and `textual`).
+The admin tool requires two additional packages (`click` and `PyYAML`).
 Install them on your **local machine** (e.g. your Windows laptop) — not on the
 Droplet:
 
@@ -288,14 +288,15 @@ python -m polymarket_watcher.admin status
 Runs `systemctl status polymarket-watcher --no-pager` on the remote host and
 prints the output.
 
-#### `logs` — streaming log viewer (TUI)
+#### `logs` — streaming log viewer
 
 ```bash
 python -m polymarket_watcher.admin logs
 ```
 
-Opens a full-screen terminal UI that streams `journalctl -f` output over SSH.
-Press **`q`** to quit.
+Streams `journalctl -f` output over SSH and prints each line directly to your
+terminal.  Works natively in PowerShell, Windows Terminal, cmd, and Linux
+shells — no TUI library required.  Press **Ctrl+C** to stop.
 
 #### `restart` — restart the service
 

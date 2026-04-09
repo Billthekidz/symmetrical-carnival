@@ -1,100 +1,59 @@
-"""Textual-based streaming log viewer for journalctl output over SSH."""
+"""Streaming log viewer — pipes ``journalctl -f`` over SSH straight to stdout.
+
+Replaces the previous Textual-based TUI, which produced ANSI escape garbage and
+flickered / broke on resize in Windows PowerShell.  Plain stdout streaming is
+the most reliable approach across all terminals: PowerShell, Windows Terminal,
+cmd, and Linux.  Press Ctrl+C to stop.
+"""
 
 from __future__ import annotations
 
-import subprocess
-import threading
-from typing import Optional
-
-from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.widgets import Footer, Header, RichLog
+import re
+import sys
 
 from .admin_config import AdminConfig
 from .ssh import ssh_stream
 
-
-class LogsApp(App):
-    """TUI that streams ``journalctl -f`` output over SSH.
-
-    Key bindings
-    ------------
-    q / ctrl+c   Quit.
-    """
-
-    TITLE = "polymarket-watcher · live logs"
-    CSS = """
-    RichLog {
-        height: 1fr;
-        border: none;
-    }
-    """
-
-    BINDINGS = [
-        Binding("q", "quit", "Quit", show=True),
-        Binding("ctrl+c", "quit", "Quit", show=False),
-    ]
-
-    def __init__(self, cfg: AdminConfig) -> None:
-        super().__init__()
-        self._cfg = cfg
-        self._proc: Optional[subprocess.Popen[str]] = None
-
-    def compose(self) -> ComposeResult:
-        yield Header()
-        yield RichLog(highlight=True, markup=False, wrap=True, id="log_view")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        """Start the background reader thread once the UI is ready."""
-        self._start_reader()
-
-    def _start_reader(self) -> None:
-        """Spawn a daemon thread that pipes SSH output into the log widget."""
-        remote_cmd = [
-            "journalctl",
-            "-u", self._cfg.unit,
-            "-f",
-            "-o", "short-iso",
-            "--no-pager",
-        ]
-        try:
-            self._proc = ssh_stream(self._cfg, remote_cmd)
-        except FileNotFoundError:
-            self.call_from_thread(self._append, "[red]Error: 'ssh' not found on PATH.[/red]")
-            return
-
-        t = threading.Thread(target=self._reader_loop, daemon=True)
-        t.start()
-
-    def _reader_loop(self) -> None:
-        """Read lines from the SSH process and forward them to the TUI."""
-        if self._proc is None or self._proc.stdout is None:
-            self.call_from_thread(
-                self._append, "[red]Error: SSH process not started.[/red]"
-            )
-            return
-        try:
-            for line in self._proc.stdout:
-                self.call_from_thread(self._append, line.rstrip())
-        except Exception:
-            pass
-
-    def _append(self, text: str) -> None:
-        log_view = self.query_one("#log_view", RichLog)
-        log_view.write(text)
-
-    def action_quit(self) -> None:
-        """Terminate the SSH process and exit the TUI."""
-        if self._proc is not None:
-            try:
-                self._proc.terminate()
-            except Exception:
-                pass
-        self.exit()
+# Matches any ANSI/VT escape sequence.  journalctl may emit colour codes even
+# when its stdout is a pipe; stripping them keeps the output readable in every
+# terminal host.
+_ANSI_ESC = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def run_logs_tui(cfg: AdminConfig) -> None:
-    """Launch the streaming log TUI (blocks until the user quits)."""
-    app = LogsApp(cfg)
-    app.run()
+    """Stream ``journalctl -f`` over SSH and print each line to stdout.
+
+    Blocks until the user presses **Ctrl+C** or the remote process exits.
+    """
+    # SYSTEMD_COLORS=0 asks journalctl not to emit colour codes regardless of
+    # whether it thinks its output is a terminal.  We also strip any surviving
+    # escape sequences client-side as a belt-and-braces measure.
+    remote_cmd = [
+        "env", "SYSTEMD_COLORS=0",
+        "journalctl",
+        "-u", cfg.unit,
+        "-f",
+        "-o", "short-iso",
+        "--no-pager",
+    ]
+
+    try:
+        proc = ssh_stream(cfg, remote_cmd)
+    except FileNotFoundError:
+        sys.exit("Error: 'ssh' not found on PATH.")
+
+    print(f"Streaming logs for '{cfg.unit}' — press Ctrl+C to stop.\n", flush=True)
+
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(_ANSI_ESC.sub("", line.rstrip()), flush=True)
+    except KeyboardInterrupt:
+        # Clean exit on Ctrl+C — no stack trace.
+        print()
+    finally:
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except Exception:
+            pass

@@ -71,6 +71,7 @@ def ssh_stream(cfg: AdminConfig, remote_cmd: Sequence[str]) -> subprocess.Popen:
         stderr=None,  # inherit
         text=True,
         bufsize=1,  # line-buffered
+        stdin=subprocess.DEVNULL,
     )
 
 
