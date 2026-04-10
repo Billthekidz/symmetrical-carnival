@@ -94,6 +94,10 @@ deploys the service to a DigitalOcean Droplet via SSH (see
 
 ### How it works
 
+The workflow uses an **atomic deploy strategy** — the new release is fully
+prepared before being made live, so there is no window where a partially
+deployed release is running.
+
 ```
 push to main
     │
@@ -102,15 +106,34 @@ push to main
     │  (deploy is skipped if tests fail)
     ▼
 [Deploy job]
-    1. SCP the source tree to /opt/polymarket-watcher on the Droplet
-    2. pip install -r requirements.txt (inside the Droplet's .venv)
-    3. systemctl daemon-reload && systemctl restart polymarket-watcher
+    1. SCP the source tree to /opt/polymarket-watcher/releases/<git-sha>/
+    2. Create /opt/polymarket-watcher/.venv if it does not already exist
+    3. pip install -r requirements.txt into the shared .venv
+    4. Atomically switch /opt/polymarket-watcher/current → new release dir
+    5. systemctl daemon-reload && systemctl restart polymarket-watcher
+    6. Prune old releases, keeping the 5 most recent
 ```
+
+The third-party Actions used by the deploy job are pinned to specific
+versions (`appleboy/scp-action@v1.0.0` and `appleboy/ssh-action@v1.2.5`)
+rather than floating `@master` tags, for reproducibility and supply-chain
+safety.
 
 ### One-time Droplet setup
 
 Run these steps once on the Droplet before the first deploy (as root or a
 sudo-capable user):
+
+The deploy workflow uses the following directory layout:
+
+```
+/opt/polymarket-watcher/
+├── releases/
+│   ├── <git-sha-1>/   ← previous release(s) — up to 5 kept
+│   └── <git-sha-2>/   ← new release (uploaded by CI)
+├── current -> releases/<git-sha-2>   ← symlink — always points to live release
+└── .venv/             ← shared virtualenv (created once, reused across releases)
+```
 
 ```bash
 # 1. Install Python 3.12+ and git
@@ -119,16 +142,13 @@ apt-get update && apt-get install -y python3.12 python3.12-venv git
 # 2. Create a dedicated, unprivileged service account
 useradd --system --no-create-home polymarket-watcher
 
-# 3. Create the deploy directory and clone the repo
-mkdir -p /opt/polymarket-watcher
-git clone https://github.com/Billthekidz/symmetrical-carnival.git /opt/polymarket-watcher
+# 3. Create the base directory structure
+mkdir -p /opt/polymarket-watcher/releases
 chown -R <deploy_user>:<deploy_user> /opt/polymarket-watcher
+# The shared .venv and initial "current" symlink are created automatically
+# by the first CI deploy run.
 
-# 4. Create the virtual environment and install dependencies
-python3.12 -m venv /opt/polymarket-watcher/.venv
-/opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
-
-# 5. Create the config directory with service-group read access.
+# 4. Create the config directory with service-group read access.
 #    Keep it root-owned; admins edit via limited sudo commands.
 mkdir -p /etc/polymarket-watcher
 cp /path/to/symmetrical-carnival/config.yaml /etc/polymarket-watcher/config.yaml
@@ -137,12 +157,15 @@ chmod 640 /etc/polymarket-watcher/config.yaml
 chown root:polymarket-watcher /etc/polymarket-watcher
 chmod 750 /etc/polymarket-watcher
 
-# 6. Install the systemd unit file
-cp /opt/polymarket-watcher/polymarket-watcher.service /etc/systemd/system/
+# 5. Install the systemd unit file
+#    The unit file's WorkingDirectory / ExecStart must point to "current":
+#    WorkingDirectory=/opt/polymarket-watcher/current
+#    ExecStart=/opt/polymarket-watcher/.venv/bin/python -m polymarket_watcher …
+cp /path/to/symmetrical-carnival/polymarket-watcher.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now polymarket-watcher
 
-# 7. Allow the deploy user to restart the service without a password prompt
+# 6. Allow the deploy user to restart the service without a password prompt
 #    (replace <deploy_user> with the SSH user).
 #    Always use visudo so syntax is validated before install.
 visudo -f /etc/sudoers.d/polymarket-watcher
