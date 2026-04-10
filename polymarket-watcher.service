@@ -13,7 +13,7 @@ Group=polymarket-watcher
 
 # ── Working directory & environment ───────────────────────────────────────────
 # Adjust WorkingDirectory and ExecStart to match your installation path.
-WorkingDirectory=/opt/polymarket-watcher
+WorkingDirectory=/opt/polymarket-watcher/current
 
 # Point to the Python interpreter inside the virtual environment, if used.
 ExecStart=/opt/polymarket-watcher/.venv/bin/python \
