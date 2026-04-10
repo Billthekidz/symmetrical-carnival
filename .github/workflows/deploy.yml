@@ -78,21 +78,6 @@ jobs:
           port: ${{ vars.DO_PORT || 22 }}
           script: |
             DEPLOY_DIR=/opt/polymarket-watcher
-            CONFIG_DIR=/etc/polymarket-watcher
-
-            # ── Ensure config directory exists and is writable by this user ──
-            # (Only needs sudo on the very first deploy; subsequent runs skip this.)
-            if [ ! -d "$CONFIG_DIR" ]; then
-              sudo mkdir -p "$CONFIG_DIR"
-              sudo chown "$USER:$USER" "$CONFIG_DIR"
-              sudo chmod 750 "$CONFIG_DIR"
-            fi
-
-            # Seed config from install dir on first deploy; never overwrite
-            # a config that the admin has already customised via 'config edit'.
-            if [ ! -f "$CONFIG_DIR/config.yaml" ] && [ -f "$DEPLOY_DIR/config.yaml" ]; then
-              cp "$DEPLOY_DIR/config.yaml" "$CONFIG_DIR/config.yaml"
-            fi
 
             # ── Install / update Python dependencies ───────────────────────
             "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r $DEPLOY_DIR/requirements.txt

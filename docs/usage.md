@@ -142,7 +142,7 @@ systemctl enable --now polymarket-watcher
 
 # 7. Allow the deploy user to restart the service without a password prompt
 #    (replace <deploy_user> with the SSH user)
-echo "<deploy_user> ALL=(ALL) NOPASSWD: /usr/bin/mkdir -p /etc/polymarket-watcher, /usr/bin/chown <deploy_user>\:<deploy_user> /etc/polymarket-watcher, /usr/bin/chmod 750 /etc/polymarket-watcher, /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher" \
+echo "<deploy_user> ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher" \
   | sudo tee /etc/sudoers.d/polymarket-watcher
 chmod 440 /etc/sudoers.d/polymarket-watcher
 ```
