@@ -226,14 +226,27 @@ directory.
 push to main (non-doc files only)
     │
     ▼
-[update-docs job]
+[update-docs job]  (.github/workflows/update-docs.yml)
     1. Finds the last commit whose message contains "[documentation]"
     2. Installs @github/copilot via npm
     3. Runs: copilot -p "…review commits since <sha>…update docs…"
     4. Agent commits updated docs with "[documentation]" in the message
+    │
+    │  on: workflow_run (completed + success)
+    ▼
+[Docs build & deploy job]  (.github/workflows/docs.yml)
+    5. Builds Sphinx HTML from the agent's updated docs/
+    6. Publishes the HTML to GitHub Pages
 ```
 
-Self-triggering is prevented by two mechanisms:
+The Docs workflow (`.github/workflows/docs.yml`) listens for the
+`workflow_run` event from *"Update documentation via Copilot agent"* and only
+proceeds when that run concluded successfully.  This ensures that every
+automated documentation commit is immediately built and published to GitHub
+Pages, even though the agent's commit is a doc-only push and would otherwise
+be ignored by `docs.yml`'s `paths-ignore` filter.
+
+Self-triggering of `update-docs.yml` is prevented by two mechanisms:
 - **`paths-ignore`** — pushes that only touch `*.md` or `docs/**` never start
   the workflow.
 - **`if` condition** — the job is skipped when the head commit message already
