@@ -18,7 +18,7 @@ WorkingDirectory=/opt/polymarket-watcher
 # Point to the Python interpreter inside the virtual environment, if used.
 ExecStart=/opt/polymarket-watcher/.venv/bin/python \
     -m polymarket_watcher \
-    /opt/polymarket-watcher/config.yaml
+    /etc/polymarket-watcher/config.yaml
 
 # ── Restart policy ────────────────────────────────────────────────────────────
 Restart=on-failure

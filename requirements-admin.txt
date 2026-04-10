@@ -1,0 +1,8 @@
+# Admin CLI dependencies
+# Install on the machine you run the admin tool from (e.g. your Windows laptop).
+# NOT needed on the remote server / Droplet.
+#
+#   pip install -r requirements-admin.txt
+#
+click>=8.0
+PyYAML>=6.0
