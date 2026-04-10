@@ -131,7 +131,7 @@ python3.12 -m venv /opt/polymarket-watcher/.venv
 # 5. Create the config directory with service-group read access.
 #    Keep it root-owned; admins edit via limited sudo commands.
 mkdir -p /etc/polymarket-watcher
-cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
+cp /path/to/symmetrical-carnival/config.yaml /etc/polymarket-watcher/config.yaml
 chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
 chmod 640 /etc/polymarket-watcher/config.yaml
 chown root:polymarket-watcher /etc/polymarket-watcher
@@ -143,9 +143,12 @@ systemctl daemon-reload
 systemctl enable --now polymarket-watcher
 
 # 7. Allow the deploy user to restart the service without a password prompt
-#    (replace <deploy_user> with the SSH user)
-echo "<deploy_user> ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher" \
-  | sudo tee /etc/sudoers.d/polymarket-watcher
+#    (replace <deploy_user> with the SSH user).
+#    Always use visudo so syntax is validated before install.
+visudo -f /etc/sudoers.d/polymarket-watcher
+# Add this line in the editor:
+# <deploy_user> ALL=(ALL) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher
+visudo -cf /etc/sudoers.d/polymarket-watcher
 chmod 440 /etc/sudoers.d/polymarket-watcher
 ```
 
@@ -282,7 +285,7 @@ The `admin` user on the Droplet needs:
 
    ```bash
    mkdir -p /etc/polymarket-watcher
-   cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
+    cp /path/to/symmetrical-carnival/config.yaml /etc/polymarket-watcher/config.yaml
    chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
    chmod 640 /etc/polymarket-watcher/config.yaml
    chown root:polymarket-watcher /etc/polymarket-watcher
@@ -292,9 +295,12 @@ The `admin` user on the Droplet needs:
 4. **Passwordless sudo** for restart/status and config edit plumbing — create
    `/etc/sudoers.d/polymarket-watcher-admin`:
 
-   ```
-   admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher, /usr/bin/cat /etc/polymarket-watcher/config.yaml, /usr/bin/install -o root -g polymarket-watcher -m 0640 /tmp/pmw-config-* /etc/polymarket-watcher/config.yaml
-   ```
+    ```bash
+    visudo -f /etc/sudoers.d/polymarket-watcher-admin
+    # Add this line in the editor:
+    # admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher, /usr/bin/cat /etc/polymarket-watcher/config.yaml, /usr/bin/install -o root -g polymarket-watcher -m 0640 /tmp/pmw-config-* /etc/polymarket-watcher/config.yaml
+    visudo -cf /etc/sudoers.d/polymarket-watcher-admin
+    ```
 
    ```bash
    chmod 440 /etc/sudoers.d/polymarket-watcher-admin

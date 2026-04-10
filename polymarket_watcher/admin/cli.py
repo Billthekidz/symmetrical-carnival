@@ -25,6 +25,10 @@ from .editor import open_editor
 from .ssh import scp_upload, ssh_run
 
 
+_LEGACY_REMOTE_CONFIG_PATH = "/opt/polymarket-watcher/config.yaml"
+_DEFAULT_REMOTE_CONFIG_PATH = "/etc/polymarket-watcher/config.yaml"
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -73,6 +77,17 @@ def _validate_service_config(yaml_text: str) -> None:
         )
     except Exception as exc:
         raise click.ClickException(f"Config validation failed: {exc}") from exc
+
+
+def _candidate_remote_config_paths(remote_config: str) -> list[str]:
+    """Return ordered candidate paths for downloading service config.
+
+    Keeps current behavior for non-legacy paths while allowing a one-time
+    fallback for historical installs that used /opt/.../config.yaml.
+    """
+    if remote_config == _LEGACY_REMOTE_CONFIG_PATH:
+        return [_LEGACY_REMOTE_CONFIG_PATH, _DEFAULT_REMOTE_CONFIG_PATH]
+    return [remote_config]
 
 
 # ---------------------------------------------------------------------------
@@ -250,16 +265,38 @@ def config_edit(ctx: click.Context) -> None:
 
     try:
         # 1. Download
-        click.echo(f"Downloading {cfg.remote_config} from {cfg.user}@{cfg.host} …")
-        try:
-            result = ssh_run(
-                cfg,
-                ["sudo", "cat", cfg.remote_config],
-                capture=True,
-            )
+        chosen_remote_config: str | None = None
+        download_error: Exception | None = None
+        for candidate in _candidate_remote_config_paths(cfg.remote_config):
+            click.echo(f"Downloading {candidate} from {cfg.user}@{cfg.host} …")
+            try:
+                result = ssh_run(
+                    cfg,
+                    ["sudo", "cat", candidate],
+                    capture=True,
+                )
+            except Exception as exc:
+                download_error = exc
+                continue
+
+            chosen_remote_config = candidate
             tmp_path.write_text(result.stdout, encoding="utf-8")
-        except Exception as exc:
-            raise click.ClickException(f"Download failed: {exc}") from exc
+            break
+
+        if chosen_remote_config is None:
+            raise click.ClickException(f"Download failed: {download_error}")
+
+        if chosen_remote_config != cfg.remote_config:
+            old_remote_config = cfg.remote_config
+            cfg.remote_config = chosen_remote_config
+            config_file = ctx.obj.get("config_file")
+            save_path = Path(config_file) if config_file else default_config_path()
+            cfg.save(save_path)
+            click.echo(
+                "Detected legacy remote config path "
+                f"'{old_remote_config}'. Updated to '{chosen_remote_config}' "
+                f"in {save_path}."
+            )
 
         original_text = tmp_path.read_text(encoding="utf-8")
 
