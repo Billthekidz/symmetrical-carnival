@@ -22,7 +22,7 @@ import yaml
 
 from .admin_config import AdminConfig, default_config_path
 from .editor import open_editor
-from .ssh import scp_download, scp_upload, ssh_run
+from .ssh import scp_upload, ssh_run
 
 
 # ---------------------------------------------------------------------------
@@ -118,12 +118,17 @@ def init(ctx: click.Context) -> None:
     remote_config = click.prompt(
         "Remote config file path", default=existing.remote_config
     )
+    remote_config_group = click.prompt(
+        "Remote config file group (service-read)",
+        default=existing.remote_config_group,
+    )
 
     cfg = AdminConfig(
         host=host,
         user=user,
         unit=unit,
         remote_config=remote_config,
+        remote_config_group=remote_config_group,
         ssh_options=existing.ssh_options,
     )
     saved = cfg.save(path)
@@ -226,10 +231,10 @@ def config_edit(ctx: click.Context) -> None:
     \b
     Workflow
     --------
-    1. Download  /etc/polymarket-watcher/config.yaml  via scp.
+    1. Download remote config using sudo cat over SSH.
     2. Open your local editor (respects $EDITOR; falls back to VS Code / notepad / nano).
     3. Validate the edited file (YAML parse + schema check).
-    4. Upload back atomically (write to .tmp then move on remote).
+    4. Upload to /tmp and install atomically with sudo (owner=root, mode=0640).
     5. Prompt to restart the service.
     """
     cfg = _load_cfg(ctx.obj.get("config_file"))
@@ -247,7 +252,12 @@ def config_edit(ctx: click.Context) -> None:
         # 1. Download
         click.echo(f"Downloading {cfg.remote_config} from {cfg.user}@{cfg.host} …")
         try:
-            scp_download(cfg, cfg.remote_config, tmp_path)
+            result = ssh_run(
+                cfg,
+                ["sudo", "cat", cfg.remote_config],
+                capture=True,
+            )
+            tmp_path.write_text(result.stdout, encoding="utf-8")
         except Exception as exc:
             raise click.ClickException(f"Download failed: {exc}") from exc
 
@@ -269,11 +279,26 @@ def config_edit(ctx: click.Context) -> None:
         click.echo("  ✓ YAML is valid.")
 
         # 4. Upload atomically
-        remote_tmp = cfg.remote_config + ".tmp"
+        remote_tmp = f"/tmp/pmw-config-{tmp_path.name}"
         click.echo(f"Uploading to {cfg.user}@{cfg.host}:{cfg.remote_config} …")
         try:
             scp_upload(cfg, tmp_path, remote_tmp)
-            ssh_run(cfg, ["mv", remote_tmp, cfg.remote_config])
+            ssh_run(
+                cfg,
+                [
+                    "sudo",
+                    "install",
+                    "-o",
+                    "root",
+                    "-g",
+                    cfg.remote_config_group,
+                    "-m",
+                    "0640",
+                    remote_tmp,
+                    cfg.remote_config,
+                ],
+            )
+            ssh_run(cfg, ["rm", "-f", remote_tmp], check=False)
         except Exception as exc:
             # Attempt cleanup
             try:

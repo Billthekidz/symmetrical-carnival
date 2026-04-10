@@ -69,6 +69,7 @@ class TestAdminConfigLoadSave:
         assert cfg.user == "admin"
         assert cfg.unit == "polymarket-watcher"
         assert cfg.remote_config == "/etc/polymarket-watcher/config.yaml"
+        assert cfg.remote_config_group == "polymarket-watcher"
 
     def test_load_from_yaml(self, tmp_path: Path) -> None:
         data = {
@@ -76,6 +77,7 @@ class TestAdminConfigLoadSave:
             "user": "deploy",
             "unit": "my-service",
             "remote_config": "/etc/my-service/config.yaml",
+            "remote_config_group": "my-service",
         }
         cfg_file = tmp_path / "admin.yaml"
         cfg_file.write_text(yaml.dump(data))
@@ -85,6 +87,7 @@ class TestAdminConfigLoadSave:
         assert cfg.user == "deploy"
         assert cfg.unit == "my-service"
         assert cfg.remote_config == "/etc/my-service/config.yaml"
+        assert cfg.remote_config_group == "my-service"
 
     def test_save_creates_parent_dirs(self, tmp_path: Path) -> None:
         cfg = AdminConfig(host="10.0.0.1")
@@ -99,6 +102,7 @@ class TestAdminConfigLoadSave:
             user="ops",
             unit="test-unit",
             remote_config="/var/lib/svc/config.yaml",
+            remote_config_group="svc-group",
             ssh_options=["-p", "2222"],
         )
         path = tmp_path / "admin.yaml"
@@ -109,6 +113,7 @@ class TestAdminConfigLoadSave:
         assert loaded.user == "ops"
         assert loaded.unit == "test-unit"
         assert loaded.remote_config == "/var/lib/svc/config.yaml"
+        assert loaded.remote_config_group == "svc-group"
         assert loaded.ssh_options == ["-p", "2222"]
 
     def test_ssh_options_as_string(self, tmp_path: Path) -> None:

@@ -12,6 +12,7 @@ host: 198.51.100.10      # required — IP/hostname of the Droplet
 user: admin              # SSH user (default: admin)
 unit: polymarket-watcher # systemd unit name
 remote_config: /etc/polymarket-watcher/config.yaml
+remote_config_group: polymarket-watcher
 """
 
 from __future__ import annotations
@@ -60,6 +61,7 @@ class AdminConfig:
     user: str = "admin"
     unit: str = "polymarket-watcher"
     remote_config: str = "/etc/polymarket-watcher/config.yaml"
+    remote_config_group: str = "polymarket-watcher"
     # Optional: extra ssh options forwarded verbatim (e.g. "-p 2222")
     ssh_options: list[str] = field(default_factory=list)
 
@@ -92,6 +94,9 @@ class AdminConfig:
             remote_config=str(
                 data.get("remote_config", "/etc/polymarket-watcher/config.yaml")
             ),
+            remote_config_group=str(
+                data.get("remote_config_group", "polymarket-watcher")
+            ),
             ssh_options=list(ssh_options_raw),
         )
 
@@ -109,6 +114,7 @@ class AdminConfig:
             "user": self.user,
             "unit": self.unit,
             "remote_config": self.remote_config,
+            "remote_config_group": self.remote_config_group,
         }
         if self.ssh_options:
             data["ssh_options"] = self.ssh_options

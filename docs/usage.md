@@ -128,11 +128,13 @@ chown -R <deploy_user>:<deploy_user> /opt/polymarket-watcher
 python3.12 -m venv /opt/polymarket-watcher/.venv
 /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
 
-# 5. Create the config directory (separate from the install path so that
-#    the admin SSH user can edit it without write access to /opt/polymarket-watcher)
+# 5. Create the config directory with service-group read access.
+#    Keep it root-owned; admins edit via limited sudo commands.
 mkdir -p /etc/polymarket-watcher
 cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
-chown -R admin:admin /etc/polymarket-watcher
+chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
+chmod 640 /etc/polymarket-watcher/config.yaml
+chown root:polymarket-watcher /etc/polymarket-watcher
 chmod 750 /etc/polymarket-watcher
 
 # 6. Install the systemd unit file
@@ -251,6 +253,7 @@ You will be prompted for:
 | `user` | `admin` | SSH user on the Droplet |
 | `unit` | `polymarket-watcher` | systemd unit name |
 | `remote_config` | `/etc/polymarket-watcher/config.yaml` | Path to the service config file |
+| `remote_config_group` | `polymarket-watcher` | Group applied to config file for service read access |
 
 The config file is stored in a standard per-user location — you can always
 check where with:
@@ -274,23 +277,23 @@ The `admin` user on the Droplet needs:
    usermod -aG systemd-journal admin
    ```
 
-3. **Write access to the service config directory** — the config is kept in
-   `/etc/polymarket-watcher/` (separate from the installation directory) so the
-   `admin` user can edit it without needing write access to `/opt/polymarket-watcher/`.
-   Create the directory and grant ownership to the `admin` user once:
+3. **Service-user read access to the config** — keep the config owned by root,
+   but readable by the service group (`polymarket-watcher`) so systemd can read it:
 
    ```bash
    mkdir -p /etc/polymarket-watcher
    cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
-   chown -R admin:admin /etc/polymarket-watcher
+   chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
+   chmod 640 /etc/polymarket-watcher/config.yaml
+   chown root:polymarket-watcher /etc/polymarket-watcher
    chmod 750 /etc/polymarket-watcher
    ```
 
-4. **Passwordless sudo** for restart and status — create
+4. **Passwordless sudo** for restart/status and config edit plumbing — create
    `/etc/sudoers.d/polymarket-watcher-admin`:
 
    ```
-   admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher
+   admin ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart polymarket-watcher, /usr/bin/systemctl status polymarket-watcher, /usr/bin/cat /etc/polymarket-watcher/config.yaml, /usr/bin/install -o root -g polymarket-watcher -m 0640 /tmp/pmw-config-* /etc/polymarket-watcher/config.yaml
    ```
 
    ```bash
