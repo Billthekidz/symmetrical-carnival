@@ -3,8 +3,9 @@
 # Runs automatically on every push to main, and can also be triggered
 # manually from the Actions tab (workflow_dispatch).
 #
-# GitHub Pages must be configured to use "GitHub Actions" as the source:
-#   Repository → Settings → Pages → Source → GitHub Actions
+# Additionally, runs after the "Update documentation via Copilot agent" workflow
+# completes successfully, so documentation changes made by automation still
+# get built/deployed even if they don't trigger push workflows.
 
 name: Docs
 
@@ -13,6 +14,10 @@ on:
     branches:
       - main
   workflow_dispatch:
+  workflow_run:
+    workflows:
+      - "Update documentation via Copilot agent"
+    types: [completed]
 
 # Allow one concurrent deployment; cancel in-progress runs for the same ref.
 concurrency:
@@ -25,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Only run for workflow_run when the upstream workflow succeeded.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout
