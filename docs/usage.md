@@ -64,10 +64,12 @@ managed system service.
 sudo useradd --system --no-create-home polymarket-watcher
 
 # 2. Deploy the code
-sudo mkdir -p /opt/polymarket-watcher
-sudo cp -r . /opt/polymarket-watcher/
+#    The unit file expects the code at /opt/polymarket-watcher/current/
+#    (the same layout used by the CI deploy workflow).
+sudo mkdir -p /opt/polymarket-watcher/current
+sudo cp -r . /opt/polymarket-watcher/current/
 sudo python -m venv /opt/polymarket-watcher/.venv
-sudo /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
+sudo /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/current/requirements.txt
 
 # 3. Place the config in /etc (separate from the install path)
 sudo mkdir -p /etc/polymarket-watcher
