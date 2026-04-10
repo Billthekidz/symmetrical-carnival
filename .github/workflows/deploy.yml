@@ -12,8 +12,11 @@
 #
 # The workflow:
 #   1. Runs the test suite – a failing test blocks the deploy.
-#   2. SSHs into the droplet, pulls the latest code, installs dependencies,
-#      and restarts the systemd service.
+#   2. Uploads the source code to a unique release directory on the droplet.
+#   3. Switches the /opt/polymarket-watcher/current symlink to the new release.
+#   4. Installs/updates dependencies using the shared venv, then restarts the
+#      systemd service.
+#   5. Prunes old releases, keeping the last 5.
 
 name: Deploy to DigitalOcean
 
@@ -54,35 +57,55 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      BASE_DIR: /opt/polymarket-watcher
+      RELEASES_DIR: /opt/polymarket-watcher/releases
+      RELEASE_DIR: /opt/polymarket-watcher/releases/${{ github.sha }}
+      CURRENT_DIR: /opt/polymarket-watcher/current
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload source code via SCP
-        uses: appleboy/scp-action@master
+      - name: Upload source code to release directory via SCP
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ vars.DO_HOST }}
           username: ${{ vars.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           port: ${{ vars.DO_PORT || 22 }}
           source: "."
-          target: "/opt/polymarket-watcher"
+          target: "${{ env.RELEASE_DIR }}"
           rm: false
 
-      - name: Run deployment commands via SSH
-        uses: appleboy/ssh-action@master
+      - name: Switch symlink, install dependencies, and restart service
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.DO_HOST }}
           username: ${{ vars.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           port: ${{ vars.DO_PORT || 22 }}
           script: |
-            DEPLOY_DIR=/opt/polymarket-watcher
+            BASE_DIR="/opt/polymarket-watcher"
+            RELEASES_DIR="$BASE_DIR/releases"
+            RELEASE_DIR="$RELEASES_DIR/${{ github.sha }}"
+            CURRENT_DIR="$BASE_DIR/current"
 
-            # ── Install / update Python dependencies ───────────────────────
-            "$DEPLOY_DIR/.venv/bin/pip" install --quiet -r $DEPLOY_DIR/requirements.txt
+            # ── Ensure shared virtualenv exists ────────────────────────────
+            if [ ! -f "$BASE_DIR/.venv/bin/pip" ]; then
+              python3 -m venv "$BASE_DIR/.venv"
+            fi
+
+            # ── Install / update Python dependencies before going live ─────
+            "$BASE_DIR/.venv/bin/pip" install --quiet -r "$RELEASE_DIR/requirements.txt"
+
+            # ── Switch symlink atomically to the new release ───────────────
+            ln -sfn "$RELEASE_DIR" "$CURRENT_DIR"
 
             # ── Reload and restart the systemd service ─────────────────────
             sudo systemctl daemon-reload
             sudo systemctl restart polymarket-watcher
             sudo systemctl status polymarket-watcher
+
+            # ── Prune old releases, keep the last 5 ───────────────────────
+            ls -1dt "$RELEASES_DIR"/*/  | tail -n +6 | xargs -r rm -rf
