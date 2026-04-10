@@ -48,6 +48,12 @@ polymarket_watcher/
 ├── websocket_client.py    ← auto-reconnecting WebSocket client (websockets lib)
 ├── service.py             ← orchestrator: wires everything together
 ├── main.py                ← entry point with signal handling
+├── admin/                 ← local admin CLI (SSH-based, run on your machine)
+│   ├── admin_config.py    ← per-user config (~/.config/polymarket-watcher/admin.yaml)
+│   ├── cli.py             ← Click-based CLI (init/status/logs/restart/config)
+│   ├── editor.py          ← cross-platform editor selection ($EDITOR / VS Code / nano)
+│   ├── ssh.py             ← ssh/scp subprocess helpers
+│   └── tui.py             ← streaming log viewer (journalctl -f over SSH)
 ├── watchers/
 │   ├── base_watcher.py          ← abstract BaseWatcher
 │   └── price_support_watcher.py ← detects bid-support drop alerts

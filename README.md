@@ -73,7 +73,7 @@ python -m polymarket_watcher.admin init
 # Show service status
 python -m polymarket_watcher.admin status
 
-# Stream live logs (press q to quit)
+# Stream live logs (Ctrl+C to stop)
 python -m polymarket_watcher.admin logs
 
 # Edit remote config locally, validate, upload, then optionally restart

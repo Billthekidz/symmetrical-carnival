@@ -257,6 +257,7 @@ You will be prompted for:
 | `unit` | `polymarket-watcher` | systemd unit name |
 | `remote_config` | `/etc/polymarket-watcher/config.yaml` | Path to the service config file |
 | `remote_config_group` | `polymarket-watcher` | Group applied to config file for service read access |
+| `ssh_options` | *(empty)* | Extra SSH flags forwarded verbatim (e.g. `["-p", "2222"]` for a non-standard port) |
 
 The config file is stored in a standard per-user location — you can always
 check where with:
@@ -285,7 +286,7 @@ The `admin` user on the Droplet needs:
 
    ```bash
    mkdir -p /etc/polymarket-watcher
-    cp /path/to/symmetrical-carnival/config.yaml /etc/polymarket-watcher/config.yaml
+   cp /path/to/symmetrical-carnival/config.yaml /etc/polymarket-watcher/config.yaml
    chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
    chmod 640 /etc/polymarket-watcher/config.yaml
    chown root:polymarket-watcher /etc/polymarket-watcher
@@ -307,6 +308,15 @@ The `admin` user on the Droplet needs:
    ```
 
 ### Commands
+
+#### `config-path` — show the admin config file location
+
+```bash
+python -m polymarket_watcher.admin config-path
+```
+
+Prints the full path to the per-user admin config file.  Useful for locating
+the file if you want to hand-edit it or back it up.
 
 #### `status` — show service status
 
