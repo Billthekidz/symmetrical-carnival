@@ -68,7 +68,7 @@ class TestAdminConfigLoadSave:
         assert cfg.host == ""
         assert cfg.user == "admin"
         assert cfg.unit == "polymarket-watcher"
-        assert cfg.remote_config == "/opt/polymarket-watcher/config.yaml"
+        assert cfg.remote_config == "/etc/polymarket-watcher/config.yaml"
 
     def test_load_from_yaml(self, tmp_path: Path) -> None:
         data = {

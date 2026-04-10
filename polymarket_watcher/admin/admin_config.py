@@ -11,7 +11,7 @@ Example admin.yaml
 host: 198.51.100.10      # required — IP/hostname of the Droplet
 user: admin              # SSH user (default: admin)
 unit: polymarket-watcher # systemd unit name
-remote_config: /opt/polymarket-watcher/config.yaml
+remote_config: /etc/polymarket-watcher/config.yaml
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class AdminConfig:
     host: str = ""
     user: str = "admin"
     unit: str = "polymarket-watcher"
-    remote_config: str = "/opt/polymarket-watcher/config.yaml"
+    remote_config: str = "/etc/polymarket-watcher/config.yaml"
     # Optional: extra ssh options forwarded verbatim (e.g. "-p 2222")
     ssh_options: list[str] = field(default_factory=list)
 
@@ -90,7 +90,7 @@ class AdminConfig:
             user=str(data.get("user", "admin")),
             unit=str(data.get("unit", "polymarket-watcher")),
             remote_config=str(
-                data.get("remote_config", "/opt/polymarket-watcher/config.yaml")
+                data.get("remote_config", "/etc/polymarket-watcher/config.yaml")
             ),
             ssh_options=list(ssh_options_raw),
         )

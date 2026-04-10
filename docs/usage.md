@@ -69,14 +69,18 @@ sudo cp -r . /opt/polymarket-watcher/
 sudo python -m venv /opt/polymarket-watcher/.venv
 sudo /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
 
-# 3. Install the unit file
+# 3. Place the config in /etc (separate from the install path)
+sudo mkdir -p /etc/polymarket-watcher
+sudo cp config.yaml /etc/polymarket-watcher/config.yaml
+
+# 4. Install the unit file
 sudo cp polymarket-watcher.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# 4. Enable and start
+# 5. Enable and start
 sudo systemctl enable --now polymarket-watcher
 
-# 5. Follow logs
+# 6. Follow logs
 journalctl -u polymarket-watcher -f
 ```
 
@@ -124,8 +128,12 @@ chown -R <deploy_user>:<deploy_user> /opt/polymarket-watcher
 python3.12 -m venv /opt/polymarket-watcher/.venv
 /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/requirements.txt
 
-# 5. Edit config.yaml with your market slug and settings
-# Edit /opt/polymarket-watcher/config.yaml
+# 5. Create the config directory (separate from the install path so that
+#    the admin SSH user can edit it without write access to /opt/polymarket-watcher)
+mkdir -p /etc/polymarket-watcher
+cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
+chown -R admin:admin /etc/polymarket-watcher
+chmod 750 /etc/polymarket-watcher
 
 # 6. Install the systemd unit file
 cp /opt/polymarket-watcher/polymarket-watcher.service /etc/systemd/system/
@@ -242,7 +250,7 @@ You will be prompted for:
 | `host` | *(required)* | IP address or hostname of the Droplet |
 | `user` | `admin` | SSH user on the Droplet |
 | `unit` | `polymarket-watcher` | systemd unit name |
-| `remote_config` | `/opt/polymarket-watcher/config.yaml` | Path to the service config file |
+| `remote_config` | `/etc/polymarket-watcher/config.yaml` | Path to the service config file |
 
 The config file is stored in a standard per-user location — you can always
 check where with:
@@ -266,7 +274,19 @@ The `admin` user on the Droplet needs:
    usermod -aG systemd-journal admin
    ```
 
-3. **Passwordless sudo** for restart and status — create
+3. **Write access to the service config directory** — the config is kept in
+   `/etc/polymarket-watcher/` (separate from the installation directory) so the
+   `admin` user can edit it without needing write access to `/opt/polymarket-watcher/`.
+   Create the directory and grant ownership to the `admin` user once:
+
+   ```bash
+   mkdir -p /etc/polymarket-watcher
+   cp /opt/polymarket-watcher/config.yaml /etc/polymarket-watcher/config.yaml
+   chown -R admin:admin /etc/polymarket-watcher
+   chmod 750 /etc/polymarket-watcher
+   ```
+
+4. **Passwordless sudo** for restart and status — create
    `/etc/sudoers.d/polymarket-watcher-admin`:
 
    ```
@@ -313,7 +333,7 @@ on the remote host.
 python -m polymarket_watcher.admin config edit
 ```
 
-1. Downloads `/opt/polymarket-watcher/config.yaml` from the Droplet.
+1. Downloads `/etc/polymarket-watcher/config.yaml` from the Droplet.
 2. Opens it in your local editor:
    - Uses `$EDITOR` if set.
    - Falls back to **VS Code** (`code --wait`) if found on PATH.

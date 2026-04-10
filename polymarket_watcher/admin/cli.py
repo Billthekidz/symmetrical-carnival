@@ -226,7 +226,7 @@ def config_edit(ctx: click.Context) -> None:
     \b
     Workflow
     --------
-    1. Download  /opt/polymarket-watcher/config.yaml  via scp.
+    1. Download  /etc/polymarket-watcher/config.yaml  via scp.
     2. Open your local editor (respects $EDITOR; falls back to VS Code / notepad / nano).
     3. Validate the edited file (YAML parse + schema check).
     4. Upload back atomically (write to .tmp then move on remote).
