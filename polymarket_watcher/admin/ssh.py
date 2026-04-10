@@ -46,16 +46,21 @@ def ssh_run(
         When True, a non-zero exit code raises ``subprocess.CalledProcessError``.
     """
     full_cmd = _ssh_base(cfg) + list(remote_cmd)
-    return subprocess.run(
-        full_cmd,
-        capture_output=capture,
-        text=capture,
-        check=check,
+    run_kwargs: dict[str, object] = {
+        "capture_output": capture,
+        "text": capture,
+        "check": check,
         # Redirect stdin from /dev/null so SSH does not allocate a pseudo-TTY
         # and does not block waiting for local input after the remote command
         # exits (which caused "status" to hang indefinitely).
-        stdin=subprocess.DEVNULL,
-    )
+        "stdin": subprocess.DEVNULL,
+    }
+    if capture:
+        # Avoid locale-dependent decoding failures on Windows (e.g. GBK).
+        run_kwargs["encoding"] = "utf-8"
+        run_kwargs["errors"] = "replace"
+
+    return subprocess.run(full_cmd, **run_kwargs)
 
 
 def ssh_stream(cfg: AdminConfig, remote_cmd: Sequence[str]) -> subprocess.Popen:
