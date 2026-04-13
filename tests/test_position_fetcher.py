@@ -15,6 +15,7 @@ _SAMPLE_API_RESPONSE = [
         "outcome": "Yes",
         "size": "150.0",
         "avgPrice": "0.72",
+        "curPrice": "0.68",
         "title": "Will X happen?",
         "market": {"slug": "will-x-happen"},
     },
@@ -23,6 +24,7 @@ _SAMPLE_API_RESPONSE = [
         "outcome": "No",
         "size": "50.0",
         "avgPrice": "0.30",
+        "curPrice": "0.25",
         "title": "Will Y happen?",
         "market": {"slug": "will-y-happen"},
     },
@@ -32,6 +34,7 @@ _SAMPLE_API_RESPONSE = [
         "outcome": "Yes",
         "size": "0",
         "avgPrice": "0.50",
+        "curPrice": "0.50",
         "title": "Closed market",
         "market": {"slug": "closed-market"},
     },
@@ -41,8 +44,19 @@ _SAMPLE_API_RESPONSE = [
         "outcome": "Yes",
         "size": "-1.0",
         "avgPrice": "0.50",
+        "curPrice": "0.50",
         "title": "Weird market",
         "market": {"slug": "weird-market"},
+    },
+    # curPrice == 0 — resolved/lost market, should be filtered out.
+    {
+        "asset": "token-lost",
+        "outcome": "Yes",
+        "size": "200.0",
+        "avgPrice": "0.60",
+        "curPrice": "0",
+        "title": "Lost market",
+        "market": {"slug": "lost-market"},
     },
 ]
 
@@ -66,6 +80,15 @@ class TestFetchPositionsFiltering:
         asset_ids = [p.asset_id for p in positions]
         assert "token-zero" not in asset_ids
         assert "token-neg" not in asset_ids
+
+    def test_concluded_positions_excluded(self) -> None:
+        """Positions with curPrice == 0 (resolved/lost) must be filtered out."""
+        with patch("polymarket_watcher.position_fetcher.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(_SAMPLE_API_RESPONSE)
+            positions = fetch_positions(WALLET)
+
+        asset_ids = [p.asset_id for p in positions]
+        assert "token-lost" not in asset_ids
 
     def test_returns_only_positive_size_positions(self) -> None:
         with patch("polymarket_watcher.position_fetcher.requests.get") as mock_get:
@@ -119,6 +142,57 @@ class TestFetchPositionsFields:
         positions = self._get_positions()
         assert positions[0].slug == "will-x-happen"
         assert positions[1].slug == "will-y-happen"
+
+
+class TestFetchPositionsCurPriceFilter:
+    """curPrice == 0 means the market resolved as a loss — must be skipped."""
+
+    def test_cur_price_zero_excluded(self) -> None:
+        data = [
+            {
+                "asset": "token-active",
+                "outcome": "Yes",
+                "size": "100.0",
+                "avgPrice": "0.50",
+                "curPrice": "0.55",
+                "title": "Active market",
+                "market": {"slug": "active-market"},
+            },
+            {
+                "asset": "token-resolved-loss",
+                "outcome": "Yes",
+                "size": "80.0",
+                "avgPrice": "0.60",
+                "curPrice": "0",
+                "title": "Lost market",
+                "market": {"slug": "lost-market"},
+            },
+        ]
+        with patch("polymarket_watcher.position_fetcher.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(data)
+            positions = fetch_positions(WALLET)
+
+        assert len(positions) == 1
+        assert positions[0].asset_id == "token-active"
+
+    def test_cur_price_missing_treated_as_active(self) -> None:
+        """If curPrice is absent the position is treated as active (safe default)."""
+        data = [
+            {
+                "asset": "token-no-cur-price",
+                "outcome": "Yes",
+                "size": "50.0",
+                "avgPrice": "0.40",
+                "title": "No curPrice field",
+                "market": {"slug": "no-cur-price"},
+            },
+        ]
+        with patch("polymarket_watcher.position_fetcher.requests.get") as mock_get:
+            mock_get.return_value = _mock_response(data)
+            positions = fetch_positions(WALLET)
+
+        assert len(positions) == 1
+        assert positions[0].asset_id == "token-no-cur-price"
 
 
 class TestFetchPositionsApiCall:

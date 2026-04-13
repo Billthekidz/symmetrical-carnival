@@ -60,7 +60,8 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
     -------
     list[Position]
         One :class:`Position` per open holding.  Positions with ``size ≤ 0``
-        are filtered out before returning.
+        or ``curPrice == 0`` (concluded/resolved-as-loss markets) are filtered
+        out before returning.
 
     Raises
     ------
@@ -77,11 +78,23 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
     )
     resp.raise_for_status()
 
-    positions: List[Position] = []
+    positions: list[Position] = []
     for item in resp.json():
         raw_size = item.get("size", "0")
         size = Decimal(str(raw_size))
         if size <= Decimal("0"):
+            continue
+
+        # curPrice == 0 means the market has resolved against this outcome
+        # (the token is worthless).  Watching a concluded/lost position would
+        # subscribe to a dead feed and fire misleading alerts, so skip it.
+        cur_price = Decimal(str(item.get("curPrice", "1")))
+        if cur_price <= Decimal("0"):
+            market = item.get("market") if isinstance(item.get("market"), dict) else {}
+            _slug = market.get("slug") or item.get("title") or item.get("asset", "?")
+            logger.warning(
+                "Skipping concluded/lost position for %r (curPrice=0).", _slug
+            )
             continue
 
         avg_price = Decimal(str(item.get("avgPrice", "0")))
