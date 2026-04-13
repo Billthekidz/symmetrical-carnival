@@ -104,6 +104,29 @@ class OrderBook:
         """Return the lowest ask price, or ``None`` when the book is empty."""
         return self.asks[0].price if self.asks else None
 
+    def bid_volume_at_or_below(self, price: Decimal) -> Decimal:
+        """Sum of bid sizes where bid price ≤ *price*.
+
+        This represents the total buy-side liquidity sitting at or below the
+        given price level — a proxy for the "platform" supporting a position
+        entered at that price.
+
+        Parameters
+        ----------
+        price:
+            The reference price (e.g. the position's average entry price).
+
+        Returns
+        -------
+        Decimal
+            Total size of all bids at or below *price*; ``Decimal("0")`` when
+            there are no qualifying bids.
+        """
+        return sum(
+            (lv.size for lv in self.bids if lv.price <= price),
+            Decimal("0"),
+        )
+
     def bid_support_within_pct(self, pct: float) -> Decimal:
         """Sum of bid sizes where price ≥ best_bid × (1 − pct / 100).
 

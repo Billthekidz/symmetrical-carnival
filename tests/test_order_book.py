@@ -140,3 +140,33 @@ class TestBidSupportWithinPct:
 
     def test_empty_book_returns_zero(self, empty_book: OrderBook) -> None:
         assert empty_book.bid_support_within_pct(5.0) == Decimal("0")
+
+
+class TestBidVolumeAtOrBelow:
+    def test_includes_bids_exactly_at_price(
+        self, populated_book: OrderBook
+    ) -> None:
+        # Bids: 0.50 (100), 0.48 (200), 0.45 (150)
+        # At-or-below 0.50 → 100 + 200 + 150 = 450
+        volume = populated_book.bid_volume_at_or_below(Decimal("0.50"))
+        assert volume == Decimal("450")
+
+    def test_excludes_bids_above_price(self, populated_book: OrderBook) -> None:
+        # At-or-below 0.48 → 200 + 150 = 350  (0.50 level excluded)
+        volume = populated_book.bid_volume_at_or_below(Decimal("0.48"))
+        assert volume == Decimal("350")
+
+    def test_excludes_all_bids_when_price_below_lowest(
+        self, populated_book: OrderBook
+    ) -> None:
+        volume = populated_book.bid_volume_at_or_below(Decimal("0.40"))
+        assert volume == Decimal("0")
+
+    def test_includes_all_bids_when_price_above_all(
+        self, populated_book: OrderBook
+    ) -> None:
+        volume = populated_book.bid_volume_at_or_below(Decimal("0.99"))
+        assert volume == Decimal("450")  # 100 + 200 + 150
+
+    def test_empty_book_returns_zero(self, empty_book: OrderBook) -> None:
+        assert empty_book.bid_volume_at_or_below(Decimal("0.50")) == Decimal("0")

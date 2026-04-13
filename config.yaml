@@ -2,6 +2,15 @@
 # Copy this file, adjust the values, and pass the path as the first argument
 # to the service, or place it at the repository root as config.yaml.
 
+# ── Account (primary) ──────────────────────────────────────────────────────
+# Set your proxy wallet address to auto-discover all open positions.
+# When non-empty the service ignores the [market] section entirely.
+account:
+  proxy_wallet: ""   # e.g. "0xYourProxyWalletHere"
+
+# ── Manual fallback ────────────────────────────────────────────────────────
+# Used only when proxy_wallet is empty.  Fill in the market you want to watch
+# along with your entry details so the position-aware watchers can work.
 market:
   # URL slug of the Polymarket event to watch.
   # Example: for https://polymarket.com/event/will-trump-win-in-2024
@@ -13,16 +22,37 @@ market:
   #   "no"  or "short" — monitors the NO outcome token  (bearish bias)
   direction: "yes"
 
+  # Your average entry price (0–1 scale, e.g. 0.72 means 72¢).
+  # Required for position-aware watchers when using the manual fallback.
+  entry_price: 0.0
+
+  # Number of shares you hold.
+  # Required for position-aware watchers when using the manual fallback.
+  position_size: 0.0
+
 watcher:
-  price_support:
+  # ── Bid-floor watcher ───────────────────────────────────────────────────
+  # Monitors whether the total resting bid volume at-or-below your entry price
+  # is at least safety_multiple × your position size.  Fires when it drops
+  # below that level, then re-arms once the ratio recovers.
+  bid_floor:
     enabled: true
+    safety_multiple: 10.0   # alert when platform < 10 × position_size
 
-    # Count bids whose price is within this many percent of the best bid
-    # as "supporting" the price level.
+  # ── Value watcher ───────────────────────────────────────────────────────
+  # Tracks your position's current market value (best_bid × size) as a
+  # percentage of your entry cost (avg_price × size).  Fires a one-shot alert
+  # each time the value drops through a threshold.
+  value:
+    enabled: true
+    alert_thresholds: [90.0, 80.0, 70.0, 60.0]   # % of entry cost remaining
+
+  # ── Legacy price-support watcher ────────────────────────────────────────
+  # Retained for backward compatibility; disabled by default when using the
+  # position-aware watchers above.
+  price_support:
+    enabled: false
     threshold_pct: 5.0
-
-    # Fire an alert when total support drops by at least this percentage
-    # since the last measurement.
     alert_drop_pct: 20.0
 
 service:
@@ -32,3 +62,4 @@ service:
 actions:
   log:
     enabled: true   # Log detected events to stdout (placeholder for richer actions)
+
