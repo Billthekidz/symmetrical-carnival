@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, FrozenSet, List, Set
+from typing import Any
 
 from ..actions.base_action import BaseAction
 from ..order_book import OrderBook
@@ -45,7 +45,7 @@ class ValueWatcher(BaseWatcher):
         Actions to invoke when an alert is triggered.
     """
 
-    supported_event_types: FrozenSet[str] = frozenset({"book", "price_change"})
+    supported_event_types: frozenset[str] = frozenset({"book", "price_change"})
 
     def __init__(
         self,
@@ -55,8 +55,8 @@ class ValueWatcher(BaseWatcher):
         entry_cost: Decimal,
         position_size: Decimal,
         avg_price: Decimal,
-        alert_thresholds: List[float],
-        actions: List[BaseAction],
+        alert_thresholds: list[float],
+        actions: list[BaseAction],
     ) -> None:
         self._asset_id = asset_id
         self._slug = slug
@@ -65,10 +65,10 @@ class ValueWatcher(BaseWatcher):
         self._position_size = position_size
         self._avg_price = avg_price
         # Sort descending so we check the highest threshold first.
-        self._thresholds: List[float] = sorted(alert_thresholds, reverse=True)
+        self._thresholds: list[float] = sorted(alert_thresholds, reverse=True)
         self._actions = actions
         self._order_book = OrderBook(asset_id=asset_id)
-        self._fired_thresholds: Set[float] = set()
+        self._fired_thresholds: set[float] = set()
 
     # ------------------------------------------------------------------
     # BaseWatcher interface

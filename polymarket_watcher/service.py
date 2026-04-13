@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, List
+from typing import Any
 
 from .actions.log_action import LogAction
 from .config import Config
@@ -14,7 +14,6 @@ from .market_resolver import get_token_ids_for_slug
 from .position_fetcher import Position, fetch_positions
 from .watchers.base_watcher import BaseWatcher
 from .watchers.bid_floor_watcher import BidFloorWatcher
-from .watchers.price_support_watcher import PriceSupportWatcher
 from .watchers.value_watcher import ValueWatcher
 from .websocket_client import PolymarketWebSocketClient
 
@@ -34,7 +33,7 @@ class WatcherService:
 
     def __init__(self, config: Config) -> None:
         self._config = config
-        self._watchers: List[BaseWatcher] = []
+        self._watchers: list[BaseWatcher] = []
 
     # ------------------------------------------------------------------
     # Public interface
@@ -94,11 +93,11 @@ class WatcherService:
     def _build_watchers_for_positions(
         self,
         cfg: Config,
-        positions: List[Position],
-        actions: List[Any],
-    ) -> List[BaseWatcher]:
+        positions: list[Position],
+        actions: list[Any],
+    ) -> list[BaseWatcher]:
         """Build BidFloorWatcher + ValueWatcher for every open position."""
-        watchers: List[BaseWatcher] = []
+        watchers: list[BaseWatcher] = []
         bf_cfg = cfg.watcher.bid_floor
         val_cfg = cfg.watcher.value
 
@@ -146,15 +145,14 @@ class WatcherService:
         direction: str,
         yes_token_id: str,
         no_token_id: str,
-        actions: List[Any],
-    ) -> List[BaseWatcher]:
+        actions: list[Any],
+    ) -> list[BaseWatcher]:
         """Build watchers from the manual market config (fallback path)."""
-        watchers: List[BaseWatcher] = []
+        watchers: list[BaseWatcher] = []
         asset_id = yes_token_id if direction in ("yes", "long") else no_token_id
         slug = cfg.market.slug
         bf_cfg = cfg.watcher.bid_floor
         val_cfg = cfg.watcher.value
-        ps_cfg = cfg.watcher.price_support
 
         entry_price = Decimal(str(cfg.market.entry_price))
         position_size = Decimal(str(cfg.market.position_size))
@@ -195,23 +193,6 @@ class WatcherService:
                     position_size=position_size,
                     avg_price=entry_price,
                     alert_thresholds=val_cfg.alert_thresholds,
-                    actions=actions,
-                )
-            )
-
-        # ── Legacy price-support watcher ───────────────────────────────
-        if ps_cfg.enabled:
-            logger.info(
-                "Enabling PriceSupportWatcher for direction '%s', asset %s…",
-                direction,
-                asset_id[:12],
-            )
-            watchers.append(
-                PriceSupportWatcher(
-                    asset_id=asset_id,
-                    direction=direction,
-                    threshold_pct=ps_cfg.threshold_pct,
-                    alert_drop_pct=ps_cfg.alert_drop_pct,
                     actions=actions,
                 )
             )

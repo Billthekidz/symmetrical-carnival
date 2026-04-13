@@ -47,14 +47,6 @@ watcher:
     enabled: true
     alert_thresholds: [90.0, 80.0, 70.0, 60.0]   # % of entry cost remaining
 
-  # ── Legacy price-support watcher ────────────────────────────────────────
-  # Retained for backward compatibility; disabled by default when using the
-  # position-aware watchers above.
-  price_support:
-    enabled: false
-    threshold_pct: 5.0
-    alert_drop_pct: 20.0
-
 service:
   log_level: "INFO"          # DEBUG | INFO | WARNING | ERROR
   reconnect_delay_sec: 5.0   # seconds to wait before reconnecting after an error

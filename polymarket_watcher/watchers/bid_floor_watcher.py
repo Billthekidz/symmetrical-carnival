@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any, FrozenSet, List
-
+from typing import Any
 from ..actions.base_action import BaseAction
 from ..order_book import OrderBook
 from .base_watcher import BaseWatcher
@@ -47,7 +46,7 @@ class BidFloorWatcher(BaseWatcher):
         Actions to invoke when an alert is triggered.
     """
 
-    supported_event_types: FrozenSet[str] = frozenset({"book", "price_change"})
+    supported_event_types: frozenset[str] = frozenset({"book", "price_change"})
 
     def __init__(
         self,
@@ -57,7 +56,7 @@ class BidFloorWatcher(BaseWatcher):
         entry_price: Decimal,
         position_size: Decimal,
         safety_multiple: float,
-        actions: List[BaseAction],
+        actions: list[BaseAction],
     ) -> None:
         self._asset_id = asset_id
         self._slug = slug

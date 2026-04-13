@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 _VALID_DIRECTIONS = frozenset({"yes", "long", "no", "short"})
 
@@ -44,18 +44,6 @@ class MarketConfig:
 
 
 @dataclass
-class PriceSupportConfig:
-    """Tuning knobs for the legacy price-support watcher."""
-
-    enabled: bool = True
-    # Bids whose price is within this many percent of the best bid count as
-    # "supporting" the current price level.
-    threshold_pct: float = 5.0
-    # Trigger an alert when total support drops by at least this percentage.
-    alert_drop_pct: float = 20.0
-
-
-@dataclass
 class BidFloorConfig:
     """Tuning knobs for the bid-floor (support safety) watcher."""
 
@@ -71,7 +59,7 @@ class ValueConfig:
 
     enabled: bool = True
     # Percentage-of-entry-cost thresholds at which to fire a one-shot alert.
-    alert_thresholds: List[float] = field(
+    alert_thresholds: list[float] = field(
         default_factory=lambda: [90.0, 80.0, 70.0, 60.0]
     )
 
@@ -80,7 +68,6 @@ class ValueConfig:
 class WatcherConfig:
     """Container for all watcher sub-configurations."""
 
-    price_support: PriceSupportConfig = field(default_factory=PriceSupportConfig)
     bid_floor: BidFloorConfig = field(default_factory=BidFloorConfig)
     value: ValueConfig = field(default_factory=ValueConfig)
 
@@ -130,7 +117,6 @@ class Config:
         service_data = data.get("service", {})
         actions_data = data.get("actions", {})
 
-        ps_data = watcher_data.get("price_support", {})
         bf_data = watcher_data.get("bid_floor", {})
         val_data = watcher_data.get("value", {})
 
@@ -138,7 +124,6 @@ class Config:
             account=AccountConfig(**account_data),
             market=MarketConfig(**market_data),
             watcher=WatcherConfig(
-                price_support=PriceSupportConfig(**ps_data),
                 bid_floor=BidFloorConfig(**bf_data),
                 value=ValueConfig(**val_data),
             ),

@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List
 
 import requests
 
@@ -49,7 +48,7 @@ class Position:
     entry_cost: Decimal
 
 
-def fetch_positions(proxy_wallet: str) -> List[Position]:
+def fetch_positions(proxy_wallet: str) -> list[Position]:
     """Return all open positions (size > 0) for *proxy_wallet*.
 
     Parameters
