@@ -32,12 +32,16 @@ market:
 
 watcher:
   # ── Bid-floor watcher ───────────────────────────────────────────────────
-  # Monitors whether the total resting bid volume at-or-below your entry price
-  # is at least safety_multiple × your position size.  Fires when it drops
-  # below that level, then re-arms once the ratio recovers.
+  # Monitors whether the total resting bid volume within a configurable window
+  # below your entry price is at least safety_multiple × your position size.
+  # Fires when it drops below that level, then re-arms once the ratio recovers.
   bid_floor:
     enabled: true
     safety_multiple: 10.0   # alert when platform < 10 × position_size
+    # Only bids within this percentage below the entry price count as support.
+    # e.g. 10.0 means bids from entry_price × 0.90 up to entry_price are scanned.
+    # Bids far below the entry level provide little real structural protection.
+    floor_window_pct: 10.0
 
   # ── Value watcher ───────────────────────────────────────────────────────
   # Tracks your position's current market value (best_bid × size) as a
