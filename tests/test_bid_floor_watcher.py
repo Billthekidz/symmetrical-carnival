@@ -15,16 +15,18 @@ def _make_watcher(
     entry_price: float = 0.50,
     position_size: float = 100.0,
     safety_multiple: float = 10.0,
+    floor_window_pct: float = 10.0,
 ) -> tuple[BidFloorWatcher, MagicMock]:
     mock_action = MagicMock()
     mock_action.name = "MockAction"
     watcher = BidFloorWatcher(
         asset_id=ASSET_ID,
         slug="test-market",
-        direction="YES",
+        direction="yes",
         entry_price=Decimal(str(entry_price)),
         position_size=Decimal(str(position_size)),
         safety_multiple=safety_multiple,
+        floor_window_pct=floor_window_pct,
         actions=[mock_action],
     )
     return watcher, mock_action
@@ -53,7 +55,7 @@ class TestBidFloorWatcherName:
     def test_name_includes_slug_and_direction(self) -> None:
         watcher, _ = _make_watcher()
         assert "test-market" in watcher.name
-        assert "YES" in watcher.name
+        assert "yes" in watcher.name
 
 
 class TestBidFloorWatcherSupportedEvents:
@@ -126,7 +128,7 @@ class TestBidFloorWatcherAlertFiring:
 
         payload = action.execute.call_args[0][0]
         assert payload["slug"] == "test-market"
-        assert payload["direction"] == "YES"
+        assert payload["direction"] == "yes"
 
 
 class TestBidFloorWatcherReArm:
@@ -165,4 +167,64 @@ class TestBidFloorWatcherReArm:
     def test_no_alert_when_position_size_is_zero(self) -> None:
         watcher, action = _make_watcher(position_size=0.0)
         watcher.on_event(_book_event(ASSET_ID, bids=[{"price": "0.40", "size": "1"}]))
+        action.execute.assert_not_called()
+
+
+class TestBidFloorWatcherFloorWindow:
+    """floor_window_pct limits the support scan to a window below entry price."""
+
+    def test_bids_outside_window_are_excluded(self) -> None:
+        # entry=0.50, floor_window_pct=10 → window [0.45, 0.50]
+        # Bid at 0.44 is outside the window and must NOT count.
+        # safety=10, size=100 → need >= 1000 within window
+        watcher, action = _make_watcher(
+            entry_price=0.50, position_size=100.0, safety_multiple=10.0, floor_window_pct=10.0
+        )
+        watcher.on_event(
+            _book_event(
+                ASSET_ID,
+                bids=[
+                    {"price": "0.49", "size": "500"},   # inside window
+                    {"price": "0.44", "size": "9999"},  # outside window — ignored
+                ],
+            )
+        )
+        # Only 500 inside the window → below 1000 → alert fires.
+        action.execute.assert_called_once()
+        payload: dict[str, Any] = action.execute.call_args[0][0]
+        assert payload["platform_volume"] == pytest.approx(500.0)
+
+    def test_bids_inside_window_are_counted(self) -> None:
+        # entry=0.50, floor_window_pct=10 → window [0.45, 0.50]
+        watcher, action = _make_watcher(
+            entry_price=0.50, position_size=100.0, safety_multiple=10.0, floor_window_pct=10.0
+        )
+        watcher.on_event(
+            _book_event(
+                ASSET_ID,
+                bids=[
+                    {"price": "0.50", "size": "600"},   # at entry — included
+                    {"price": "0.47", "size": "500"},   # inside window — included
+                    {"price": "0.44", "size": "9999"},  # outside — ignored
+                ],
+            )
+        )
+        # 600 + 500 = 1100 ≥ 1000 → no alert
+        action.execute.assert_not_called()
+
+    def test_wider_window_includes_more_bids(self) -> None:
+        # floor_window_pct=20 → window [0.40, 0.50]
+        # Bid at 0.42 should now count.
+        watcher, action = _make_watcher(
+            entry_price=0.50, position_size=100.0, safety_multiple=10.0, floor_window_pct=20.0
+        )
+        watcher.on_event(
+            _book_event(
+                ASSET_ID,
+                bids=[
+                    {"price": "0.42", "size": "1200"},  # inside 20% window
+                ],
+            )
+        )
+        # 1200 ≥ 1000 → no alert
         action.execute.assert_not_called()

@@ -8,6 +8,7 @@ import logging
 from decimal import Decimal
 from typing import Any
 
+from .actions.base_action import BaseAction
 from .actions.log_action import LogAction
 from .config import Config
 from .market_resolver import get_token_ids_for_slug
@@ -94,7 +95,7 @@ class WatcherService:
         self,
         cfg: Config,
         positions: list[Position],
-        actions: list[Any],
+        actions: list[BaseAction],
     ) -> list[BaseWatcher]:
         """Build BidFloorWatcher + ValueWatcher for every open position."""
         watchers: list[BaseWatcher] = []
@@ -119,6 +120,7 @@ class WatcherService:
                         entry_price=pos.avg_price,
                         position_size=pos.size,
                         safety_multiple=bf_cfg.safety_multiple,
+                        floor_window_pct=bf_cfg.floor_window_pct,
                         actions=actions,
                     )
                 )
@@ -145,10 +147,14 @@ class WatcherService:
         direction: str,
         yes_token_id: str,
         no_token_id: str,
-        actions: list[Any],
+        actions: list[BaseAction],
     ) -> list[BaseWatcher]:
         """Build watchers from the manual market config (fallback path)."""
         watchers: list[BaseWatcher] = []
+        # direction is already lowercased by MarketConfig.__post_init__; normalise
+        # here defensively so alert payloads are consistent with the auto-discovery
+        # path which also uses lowercase outcome labels.
+        direction = direction.lower()
         asset_id = yes_token_id if direction in ("yes", "long") else no_token_id
         slug = cfg.market.slug
         bf_cfg = cfg.watcher.bid_floor
@@ -173,6 +179,7 @@ class WatcherService:
                     entry_price=entry_price,
                     position_size=position_size,
                     safety_multiple=bf_cfg.safety_multiple,
+                    floor_window_pct=bf_cfg.floor_window_pct,
                     actions=actions,
                 )
             )

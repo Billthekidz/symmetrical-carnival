@@ -51,6 +51,9 @@ class BidFloorConfig:
     # Alert when total bid volume at-or-below the entry price falls below
     # ``safety_multiple × position_size``.
     safety_multiple: float = 10.0
+    # Only count bids within this percentage below the entry price as meaningful
+    # support.  E.g. 10.0 means scan from entry_price down to entry_price×0.90.
+    floor_window_pct: float = 10.0
 
 
 @dataclass

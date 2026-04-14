@@ -30,7 +30,8 @@ class Position:
     title:
         Human-readable market question / title.
     direction:
-        ``"YES"`` or ``"NO"`` — which outcome token is held.
+        ``"yes"`` or ``"no"`` (or other outcome labels such as ``"up"``/``"down"``)
+        — which outcome token is held; always lower-cased.
     size:
         Number of shares owned (Decimal).
     avg_price:
@@ -60,8 +61,9 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
     -------
     list[Position]
         One :class:`Position` per open holding.  Positions with ``size ≤ 0``
-        or ``curPrice == 0`` (concluded/resolved-as-loss markets) are filtered
-        out before returning.
+        or ``curPrice ≤ 0`` (concluded/resolved-as-loss markets) are filtered
+        out before returning.  If the ``curPrice`` field is absent the position
+        is treated as active (safe default).
 
     Raises
     ------
@@ -85,7 +87,7 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
         if size <= Decimal("0"):
             continue
 
-        # curPrice == 0 means the market has resolved against this outcome
+        # curPrice <= 0 means the market has resolved against this outcome
         # (the token is worthless).  Watching a concluded/lost position would
         # subscribe to a dead feed and fire misleading alerts, so skip it.
         cur_price = Decimal(str(item.get("curPrice", "1")))
@@ -93,7 +95,9 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
             market = item.get("market") if isinstance(item.get("market"), dict) else {}
             _slug = market.get("slug") or item.get("title") or item.get("asset", "?")
             logger.warning(
-                "Skipping concluded/lost position for %r (curPrice=0).", _slug
+                "Skipping concluded/lost position for %r (curPrice=%s).",
+                _slug,
+                cur_price,
             )
             continue
 
@@ -104,8 +108,8 @@ def fetch_positions(proxy_wallet: str) -> list[Position]:
         market = item.get("market") if isinstance(item.get("market"), dict) else {}
         slug: str = market.get("slug", "")
         title: str = item.get("title") or market.get("question", "")
-        # "outcome" is "Yes" or "No"; normalise to uppercase.
-        direction: str = item.get("outcome", "YES").upper()
+        # "outcome" is "Yes", "No", "Up", "Down", etc. — normalise to lowercase.
+        direction: str = item.get("outcome", "yes").lower()
 
         positions.append(
             Position(

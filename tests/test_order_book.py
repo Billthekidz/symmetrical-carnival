@@ -170,3 +170,32 @@ class TestBidVolumeAtOrBelow:
 
     def test_empty_book_returns_zero(self, empty_book: OrderBook) -> None:
         assert empty_book.bid_volume_at_or_below(Decimal("0.50")) == Decimal("0")
+
+
+class TestBidVolumeInRange:
+    """bid_volume_in_range sums only bids within [lower, upper]."""
+
+    def test_includes_bids_at_both_bounds(self, populated_book: OrderBook) -> None:
+        # Bids: 0.50 (100), 0.48 (200), 0.45 (150)
+        # Range [0.45, 0.50] → all three levels → 100 + 200 + 150 = 450
+        volume = populated_book.bid_volume_in_range(Decimal("0.45"), Decimal("0.50"))
+        assert volume == Decimal("450")
+
+    def test_excludes_bids_outside_range(self, populated_book: OrderBook) -> None:
+        # Range [0.46, 0.50] → 0.45 excluded → 100 + 200 = 300
+        volume = populated_book.bid_volume_in_range(Decimal("0.46"), Decimal("0.50"))
+        assert volume == Decimal("300")
+
+    def test_narrow_range_single_level(self, populated_book: OrderBook) -> None:
+        # Range [0.48, 0.48] → only the 0.48 level → 200
+        volume = populated_book.bid_volume_in_range(Decimal("0.48"), Decimal("0.48"))
+        assert volume == Decimal("200")
+
+    def test_range_with_no_bids_returns_zero(self, populated_book: OrderBook) -> None:
+        # No bids in [0.51, 0.60]
+        volume = populated_book.bid_volume_in_range(Decimal("0.51"), Decimal("0.60"))
+        assert volume == Decimal("0")
+
+    def test_empty_book_returns_zero(self, empty_book: OrderBook) -> None:
+        volume = empty_book.bid_volume_in_range(Decimal("0.40"), Decimal("0.50"))
+        assert volume == Decimal("0")

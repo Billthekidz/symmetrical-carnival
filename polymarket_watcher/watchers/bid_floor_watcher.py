@@ -1,10 +1,13 @@
 """Watcher that checks whether bid-side liquidity beneath a position's entry
 price remains a safe multiple of the position size.
 
-The "platform" is defined as the total resting bid volume at prices ≤ the
-position's average entry price.  When the platform drops below
-``safety_multiple × position_size`` the position's entry level no longer has
-adequate structural support and an alert is fired.
+The "platform" is defined as the total resting bid volume within the configured
+window below the position's average entry price.  Only bids that are within
+``floor_window_pct`` percent of the entry price are counted — this avoids
+treating bids far away from the entry as meaningful structural support.
+
+When the platform drops below ``safety_multiple × position_size`` the position's
+entry level no longer has adequate structural support and an alert is fired.
 
 The alert re-arms once the ratio recovers above the safety multiple, so
 repeated alerts are only generated when the situation deteriorates, recovers,
@@ -33,15 +36,19 @@ class BidFloorWatcher(BaseWatcher):
     slug:
         Market slug used in alert payloads and log messages.
     direction:
-        ``"YES"`` or ``"NO"`` — which side the position is on.
+        Outcome label (e.g. ``"yes"``, ``"no"``) — which side the position is on.
     entry_price:
         The position's average entry price (0–1 scale).
     position_size:
         Number of shares in the position.
     safety_multiple:
         Minimum ratio of platform volume to position size considered safe.
-        Default 10 means the total bid volume at-or-below the entry price must
+        Default 10 means the total bid volume within the floor window must
         be at least 10× the position size to avoid an alert.
+    floor_window_pct:
+        How far below the entry price (in percent) to include in the platform
+        scan.  Default 10.0 means only bids from ``entry_price × 0.90`` up to
+        ``entry_price`` are counted as meaningful support.
     actions:
         Actions to invoke when an alert is triggered.
     """
@@ -57,6 +64,7 @@ class BidFloorWatcher(BaseWatcher):
         position_size: Decimal,
         safety_multiple: float,
         actions: list[BaseAction],
+        floor_window_pct: float = 10.0,
     ) -> None:
         self._asset_id = asset_id
         self._slug = slug
@@ -64,6 +72,7 @@ class BidFloorWatcher(BaseWatcher):
         self._entry_price = entry_price
         self._position_size = position_size
         self._safety_multiple = Decimal(str(safety_multiple))
+        self._floor_window_pct = Decimal(str(floor_window_pct))
         self._actions = actions
         self._order_book = OrderBook(asset_id=asset_id)
         # True while the ratio is below the safety threshold (alert is "armed").
@@ -109,17 +118,24 @@ class BidFloorWatcher(BaseWatcher):
         if self._position_size <= Decimal("0"):
             return
 
-        platform = self._order_book.bid_volume_at_or_below(self._entry_price)
+        # Only count bids within floor_window_pct % below the entry price as
+        # meaningful support (bids far below provide little real protection).
+        lower_bound = self._entry_price * (
+            Decimal("1") - self._floor_window_pct / Decimal("100")
+        )
+        platform = self._order_book.bid_volume_in_range(lower_bound, self._entry_price)
         ratio = platform / self._position_size
         best_bid = self._order_book.best_bid()
 
         logger.debug(
-            "%s: entry=%s  platform=%s  ratio=%.2fx  (need %.1fx)",
+            "%s: entry=%s  window=[%s, %s]  platform=%s  ratio=%.2fx  (need %.1fx)",
             self.name,
             self._entry_price,
+            float(lower_bound),
+            float(self._entry_price),
             platform,
-            ratio,
-            self._safety_multiple,
+            float(ratio),
+            float(self._safety_multiple),
         )
 
         unsafe = ratio < self._safety_multiple
@@ -133,7 +149,7 @@ class BidFloorWatcher(BaseWatcher):
             logger.info(
                 "%s: platform ratio recovered to %.2fx — re-armed.",
                 self.name,
-                ratio,
+                float(ratio),
             )
 
     def _fire_alert(
@@ -158,8 +174,8 @@ class BidFloorWatcher(BaseWatcher):
             "%s: platform ratio %.2fx is below safety multiple %.1fx "
             "(platform=%s, position=%s).",
             self.name,
-            ratio,
-            self._safety_multiple,
+            float(ratio),
+            float(self._safety_multiple),
             platform,
             self._position_size,
         )

@@ -116,10 +116,10 @@ class TestFetchPositionsFields:
         assert positions[0].asset_id == "token-yes-abc"
         assert positions[1].asset_id == "token-no-def"
 
-    def test_direction_normalised_to_uppercase(self) -> None:
+    def test_direction_normalised_to_lowercase(self) -> None:
         positions = self._get_positions()
-        assert positions[0].direction == "YES"
-        assert positions[1].direction == "NO"
+        assert positions[0].direction == "yes"
+        assert positions[1].direction == "no"
 
     def test_size_parsed_as_decimal(self) -> None:
         positions = self._get_positions()
@@ -145,7 +145,7 @@ class TestFetchPositionsFields:
 
 
 class TestFetchPositionsCurPriceFilter:
-    """curPrice == 0 means the market resolved as a loss — must be skipped."""
+    """curPrice <= 0 means the market resolved as a loss — must be skipped."""
 
     def test_cur_price_zero_excluded(self) -> None:
         data = [
