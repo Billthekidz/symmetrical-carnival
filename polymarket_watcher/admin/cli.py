@@ -53,11 +53,13 @@ def _validate_service_config(yaml_text: str) -> None:
     # Re-use the existing service Config dataclasses for schema validation
     try:
         from polymarket_watcher.config import (
+            AccountConfig,
             ActionsConfig,
+            BidFloorConfig,
             Config,
             MarketConfig,
-            PriceSupportConfig,
             ServiceConfig,
+            ValueConfig,
             WatcherConfig,
         )
 
@@ -65,11 +67,17 @@ def _validate_service_config(yaml_text: str) -> None:
         watcher_data = data.get("watcher", {})
         service_data = data.get("service", {})
         actions_data = data.get("actions", {})
-        ps_data = watcher_data.get("price_support", {})
+        account_data = data.get("account", {})
+        bf_data = watcher_data.get("bid_floor", {})
+        val_data = watcher_data.get("value", {})
 
         Config(
+            account=AccountConfig(**account_data),
             market=MarketConfig(**market_data),
-            watcher=WatcherConfig(price_support=PriceSupportConfig(**ps_data)),
+            watcher=WatcherConfig(
+                bid_floor=BidFloorConfig(**bf_data),
+                value=ValueConfig(**val_data),
+            ),
             service=ServiceConfig(**service_data),
             actions=ActionsConfig(
                 log_enabled=actions_data.get("log", {}).get("enabled", True)

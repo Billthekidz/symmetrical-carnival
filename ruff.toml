@@ -1,0 +1,20 @@
+# Ruff — fast Python linter.
+# Run: ruff check .
+# Docs: https://docs.astral.sh/ruff/
+
+[lint]
+# E/W = pycodestyle errors/warnings, F = pyflakes, G = flake8-logging-format,
+# UP = pyupgrade, B = flake8-bugbear.
+select = ["E", "F", "G", "W", "UP", "B"]
+# G004 — f-string in logging call (prefer % formatting or LogRecord lazy eval).
+# G010 — "warn" deprecated; use "warning".
+# E501 — line too long (set limit below).
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Tests may use assert and other patterns that trip some rules.
+"tests/**" = ["B011", "B017"]
+
+[format]
+# Use double quotes everywhere to match the existing codebase.
+quote-style = "double"

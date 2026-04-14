@@ -17,6 +17,7 @@ from polymarket_watcher.admin.admin_config import (
     AdminConfig,
     default_config_path,
 )
+from polymarket_watcher.admin.cli import _validate_service_config
 from polymarket_watcher.admin.editor import find_editor
 
 
@@ -186,3 +187,62 @@ class TestFindEditor:
             mock.patch("shutil.which", return_value=None),
         ):
             assert find_editor() == ["vi"]
+
+
+# ---------------------------------------------------------------------------
+# Admin CLI — _validate_service_config schema guard
+# ---------------------------------------------------------------------------
+
+
+class TestValidateServiceConfig:
+    """Guard that _validate_service_config uses the current config schema."""
+
+    _VALID_YAML = """
+market:
+  slug: my-market
+  direction: "yes"
+  entry_price: 0.50
+  position_size: 100.0
+watcher:
+  bid_floor:
+    enabled: true
+    safety_multiple: 10.0
+    floor_window_pct: 10.0
+  value:
+    enabled: true
+    alert_thresholds: [90.0, 80.0]
+service:
+  log_level: INFO
+  reconnect_delay_sec: 5.0
+actions:
+  log:
+    enabled: true
+"""
+
+    def test_valid_config_passes(self) -> None:
+        _validate_service_config(self._VALID_YAML)  # must not raise
+
+    def test_invalid_yaml_raises_click_exception(self) -> None:
+        import click
+
+        with pytest.raises(click.ClickException, match="YAML parse error"):
+            _validate_service_config("key: [unclosed")
+
+    def test_invalid_direction_raises_click_exception(self) -> None:
+        import click
+
+        bad = self._VALID_YAML.replace('direction: "yes"', 'direction: "INVALID"')
+        with pytest.raises(click.ClickException, match="Config validation failed"):
+            _validate_service_config(bad)
+
+    def test_does_not_use_price_support_config(self) -> None:
+        """PriceSupportConfig was removed; the validator must not import it."""
+        import polymarket_watcher.config as cfg_module
+
+        assert not hasattr(cfg_module, "PriceSupportConfig"), (
+            "PriceSupportConfig should not exist in config.py; "
+            "remove it and update _validate_service_config accordingly."
+        )
+
+    def test_empty_yaml_uses_defaults(self) -> None:
+        _validate_service_config("")  # empty file → all defaults → must not raise

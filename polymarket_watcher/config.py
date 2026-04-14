@@ -14,11 +14,25 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
 
 @dataclass
+class AccountConfig:
+    """Wallet settings for auto-discovering positions."""
+
+    # Polymarket proxy wallet address.  When non-empty the service fetches all
+    # open positions from the Data API and creates watchers automatically.
+    proxy_wallet: str = ""
+
+
+@dataclass
 class MarketConfig:
-    """Settings that identify the market and direction to watch."""
+    """Settings that identify the market and direction to watch.
+
+    Used as a manual fallback when ``AccountConfig.proxy_wallet`` is empty.
+    """
 
     slug: str = "will-trump-win-in-2024"
     direction: str = "yes"  # "yes"/"long" or "no"/"short"
+    entry_price: float = 0.0   # average entry price (0–1); 0 means unknown
+    position_size: float = 0.0  # number of shares held; 0 means unknown
 
     def __post_init__(self) -> None:
         self.direction = self.direction.strip().lower()
@@ -30,22 +44,35 @@ class MarketConfig:
 
 
 @dataclass
-class PriceSupportConfig:
-    """Tuning knobs for the price-support watcher."""
+class BidFloorConfig:
+    """Tuning knobs for the bid-floor (support safety) watcher."""
 
     enabled: bool = True
-    # Bids whose price is within this many percent of the best bid count as
-    # "supporting" the current price level.
-    threshold_pct: float = 5.0
-    # Trigger an alert when total support drops by at least this percentage.
-    alert_drop_pct: float = 20.0
+    # Alert when total bid volume at-or-below the entry price falls below
+    # ``safety_multiple × position_size``.
+    safety_multiple: float = 10.0
+    # Only count bids within this percentage below the entry price as meaningful
+    # support.  E.g. 10.0 means scan from entry_price down to entry_price×0.90.
+    floor_window_pct: float = 10.0
+
+
+@dataclass
+class ValueConfig:
+    """Tuning knobs for the value (panic level) watcher."""
+
+    enabled: bool = True
+    # Percentage-of-entry-cost thresholds at which to fire a one-shot alert.
+    alert_thresholds: list[float] = field(
+        default_factory=lambda: [90.0, 80.0, 70.0, 60.0]
+    )
 
 
 @dataclass
 class WatcherConfig:
     """Container for all watcher sub-configurations."""
 
-    price_support: PriceSupportConfig = field(default_factory=PriceSupportConfig)
+    bid_floor: BidFloorConfig = field(default_factory=BidFloorConfig)
+    value: ValueConfig = field(default_factory=ValueConfig)
 
 
 @dataclass
@@ -67,6 +94,7 @@ class ActionsConfig:
 class Config:
     """Root configuration object."""
 
+    account: AccountConfig = field(default_factory=AccountConfig)
     market: MarketConfig = field(default_factory=MarketConfig)
     watcher: WatcherConfig = field(default_factory=WatcherConfig)
     service: ServiceConfig = field(default_factory=ServiceConfig)
@@ -86,16 +114,22 @@ class Config:
         with open(resolved) as fh:
             data = yaml.safe_load(fh) or {}
 
+        account_data = data.get("account", {})
         market_data = data.get("market", {})
         watcher_data = data.get("watcher", {})
         service_data = data.get("service", {})
         actions_data = data.get("actions", {})
 
-        ps_data = watcher_data.get("price_support", {})
+        bf_data = watcher_data.get("bid_floor", {})
+        val_data = watcher_data.get("value", {})
 
         return cls(
+            account=AccountConfig(**account_data),
             market=MarketConfig(**market_data),
-            watcher=WatcherConfig(price_support=PriceSupportConfig(**ps_data)),
+            watcher=WatcherConfig(
+                bid_floor=BidFloorConfig(**bf_data),
+                value=ValueConfig(**val_data),
+            ),
             service=ServiceConfig(**service_data),
             actions=ActionsConfig(
                 log_enabled=actions_data.get("log", {}).get("enabled", True)
