@@ -7,7 +7,8 @@ symmetrical-carnival/
 ├── polymarket_watcher/        ← Python package
 │   ├── config.py              ← YAML-driven configuration dataclasses
 │   ├── market_resolver.py     ← slug → YES/NO token IDs (Gamma REST API)
-│   ├── order_book.py          ← local order-book state + price-support maths
+│   ├── order_book.py          ← local order-book state + bid volume maths
+│   ├── position_fetcher.py    ← open positions from the Polymarket Data API
 │   ├── websocket_client.py    ← auto-reconnecting WebSocket client
 │   ├── service.py             ← orchestrator
 │   ├── main.py                ← entry point / signal handling
@@ -19,7 +20,8 @@ symmetrical-carnival/
 │   │   └── tui.py             ← Textual streaming log viewer
 │   ├── watchers/
 │   │   ├── base_watcher.py          ← abstract BaseWatcher
-│   │   └── price_support_watcher.py ← monitors bid-side support drop
+│   │   ├── bid_floor_watcher.py     ← monitors bid-side support beneath entry price
+│   │   └── value_watcher.py         ← fires escalating alerts on position value loss
 │   └── actions/
 │       ├── base_action.py    ← abstract BaseAction
 │       └── log_action.py     ← default: log alert to stdout

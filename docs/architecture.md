@@ -10,26 +10,27 @@ without touching existing code.
 flowchart TD
     subgraph startup["Startup"]
         CFG[Config\nconfig.yaml] --> SVC[WatcherService]
-        MR[MarketResolver\nGamma REST API] --> SVC
+        PF[PositionFetcher\nData REST API] -->|positions| SVC
+        MR[MarketResolver\nGamma REST API] -->|token IDs| SVC
     end
 
     SVC -->|asset_ids| WS[PolymarketWebSocketClient\nwss://ws-subscriptions-clob.polymarket.com/ws/market]
 
     subgraph event_loop["Event Loop"]
         WS -->|raw JSON frame| DISPATCH[_dispatch_event\nevent bus / fan-out]
-        DISPATCH -->|book / price_change| PSW[PriceSupportWatcher]
+        DISPATCH -->|book / price_change| BFW[BidFloorWatcher]
+        DISPATCH -->|book / price_change| VW[ValueWatcher]
         DISPATCH -.->|future events| FW1[SmartMoneyWatcher\n🔮 future]
         DISPATCH -.->|future events| FW2[MarketDisputeWatcher\n🔮 future]
-        DISPATCH -.->|future events| FW3[ExternalPlatformWatcher\n🔮 future]
     end
 
     subgraph actions["Actions"]
-        PSW -->|alert payload| LA[LogAction\nstdout placeholder]
-        PSW -.->|alert payload| FA1[SMSAction\n🔮 future]
-        PSW -.->|alert payload| FA2[DiscordAction\n🔮 future]
-        PSW -.->|alert payload| FA3[TelegramAction\n🔮 future]
-        FW1 -.->|alert payload| FA1
-        FW1 -.->|alert payload| FA2
+        BFW -->|alert payload| LA[LogAction\nstdout placeholder]
+        VW -->|alert payload| LA
+        BFW -.->|alert payload| FA1[SMSAction\n🔮 future]
+        BFW -.->|alert payload| FA2[DiscordAction\n🔮 future]
+        VW -.->|alert payload| FA1
+        VW -.->|alert payload| FA2
     end
 
     style startup fill:#f0f4ff,stroke:#aac
@@ -44,7 +45,8 @@ polymarket_watcher/
 ├── __init__.py
 ├── config.py              ← dataclass-based YAML config loader
 ├── market_resolver.py     ← slug → (yes_token_id, no_token_id) via Gamma API
-├── order_book.py          ← local OrderBook state, bid_support_within_pct()
+├── order_book.py          ← local OrderBook state, bid_volume_in_range()
+├── position_fetcher.py    ← fetch open positions from the Polymarket Data API
 ├── websocket_client.py    ← auto-reconnecting WebSocket client (websockets lib)
 ├── service.py             ← orchestrator: wires everything together
 ├── main.py                ← entry point with signal handling
@@ -56,7 +58,8 @@ polymarket_watcher/
 │   └── tui.py             ← streaming log viewer (journalctl -f over SSH)
 ├── watchers/
 │   ├── base_watcher.py          ← abstract BaseWatcher
-│   └── price_support_watcher.py ← detects bid-support drop alerts
+│   ├── bid_floor_watcher.py     ← alerts when bid-floor volume is insufficient
+│   └── value_watcher.py         ← fires escalating alerts on position value loss
 └── actions/
     ├── base_action.py    ← abstract BaseAction
     └── log_action.py     ← placeholder: logs alert payload to stdout
@@ -64,12 +67,18 @@ polymarket_watcher/
 
 ## Data Flow
 
-1. **Startup** — `WatcherService` loads `Config`, resolves the market slug to
-   two CLOB token IDs (YES + NO) via the Gamma REST API, then instantiates
-   all configured watchers.
+1. **Startup** — `WatcherService` loads `Config` and chooses one of two paths:
+   - **Auto-discovery (primary):** if `account.proxy_wallet` is set,
+     `position_fetcher.fetch_positions()` queries the Polymarket Data API and
+     returns all open positions.  A `BidFloorWatcher` and a `ValueWatcher` are
+     instantiated for each position.
+   - **Manual fallback:** if no proxy wallet is configured, the `[market]`
+     section is used to watch a single market.  `MarketResolver` resolves the
+     slug to two CLOB token IDs (YES + NO), and watchers are created for the
+     configured direction.
 2. **Connection** — `PolymarketWebSocketClient` opens a persistent WebSocket
    to `wss://ws-subscriptions-clob.polymarket.com/ws/market` and sends a
-   subscription frame containing both token IDs.
+   subscription frame containing all relevant token IDs.
 3. **Inbound events** — The API sends two kinds of events:
    - `book` — full order-book snapshot (sent on subscription and after major
      state changes).

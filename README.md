@@ -1,9 +1,17 @@
 # symmetrical-carnival — Polymarket Order Book Watcher
 
 A background long-running service that subscribes to the
-[Polymarket](https://polymarket.com) CLOB WebSocket and monitors changes in
-**price support** (bid-side liquidity depth) for a configurable market and
-direction (YES / long or NO / short).
+[Polymarket](https://polymarket.com) CLOB WebSocket and monitors your open
+positions for risk signals.  It ships two built-in watchers:
+
+* **BidFloorWatcher** — alerts when the resting bid volume within a
+  configurable window below your entry price falls below a safety multiple of
+  your position size.
+* **ValueWatcher** — fires one-shot escalating alerts as your position's
+  current market value drops through configurable percentage thresholds.
+
+Positions can be discovered automatically from a proxy wallet address, or
+configured manually for a single market.
 
 ---
 
@@ -30,15 +38,25 @@ pip install -r requirements.txt
 Edit `config.yaml` with the market and thresholds you want to watch:
 
 ```yaml
+# Option A — auto-discover all open positions from your proxy wallet
+account:
+  proxy_wallet: ""   # e.g. "0xYourProxyWalletHere"
+
+# Option B — manual config for a single market (used when proxy_wallet is empty)
 market:
   slug: "will-trump-win-in-2024"   # Polymarket event slug
   direction: "yes"                  # "yes"/"long" or "no"/"short"
+  entry_price: 0.72                 # avg entry price (0–1 scale)
+  position_size: 100.0              # shares held
 
 watcher:
-  price_support:
+  bid_floor:
     enabled: true
-    threshold_pct: 5.0     # bids within this % of best bid count as support
-    alert_drop_pct: 20.0   # fire alert when support drops by this %
+    safety_multiple: 10.0   # alert when bid platform < 10 × position size
+    floor_window_pct: 10.0  # only count bids within 10% below entry price
+  value:
+    enabled: true
+    alert_thresholds: [90.0, 80.0, 70.0, 60.0]  # % of entry cost remaining
 
 service:
   log_level: "INFO"          # DEBUG | INFO | WARNING | ERROR
