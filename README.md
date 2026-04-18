@@ -120,6 +120,7 @@ pytest tests/ -v
 |---|---|
 | Full configuration reference | [`docs/configuration.md`](./docs/configuration.md) |
 | Deployment (systemd + DigitalOcean CI/CD) | [`docs/usage.md`](./docs/usage.md) |
+| Documentation automation workflow | [`docs/usage.md#automated-documentation-updates`](./docs/usage.md#automated-documentation-updates) |
 | Admin CLI/TUI (status, logs, config edit) | [`docs/usage.md#admin-clitui`](./docs/usage.md#admin-clitui) |
 | Architecture, data flow & module map | [`docs/architecture.md`](./docs/architecture.md) |
 | Adding watchers and actions | [`docs/extending.md`](./docs/extending.md) |

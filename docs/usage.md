@@ -233,12 +233,16 @@ push to main (non-doc files only)
     2. Installs @github/copilot via npm
     3. Runs: copilot -p "…review commits since <sha>…update docs…"
     4. Agent commits updated docs with "[documentation]" in the message
+    5. Fetches `origin/main` and records the remote SHA before pushing
+    6. Fails if the agent did not create a new commit
+    7. Refuses to push unless the local doc commit is a descendant of current `origin/main`
+    8. Pushes `HEAD:main`, then verifies that `origin/main` actually advanced
     │
     │  on: workflow_run (completed + success)
     ▼
 [Docs build & deploy job]  (.github/workflows/docs.yml)
-    5. Builds Sphinx HTML from the agent's updated docs/
-    6. Publishes the HTML to GitHub Pages
+    9. Builds Sphinx HTML from the agent's updated docs/
+    10. Publishes the HTML to GitHub Pages
 ```
 
 The Docs workflow (`.github/workflows/docs.yml`) listens for the
@@ -253,6 +257,17 @@ Self-triggering of `update-docs.yml` is prevented by two mechanisms:
   the workflow.
 - **`if` condition** — the job is skipped when the head commit message already
   contains `[documentation]` (i.e. the agent's own commit).
+
+The workflow also includes explicit push-safety guards before publishing the
+agent's commit back to `main`:
+- **No-op guard** — fails the job if the agent did not actually create a new
+  documentation commit.
+- **Ancestry check** — refuses to push unless the local documentation commit is
+  a descendant of the latest fetched `origin/main`, preventing accidental
+  non-fast-forward updates.
+- **Post-push verification** — fetches `origin/main` again and fails if the
+  remote branch did not move, so a silently ineffective push does not look
+  successful.
 
 ### Authentication
 
