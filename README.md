@@ -118,6 +118,7 @@ pytest tests/ -v
 
 | Topic | Document |
 |---|---|
+| Documentation map by file | [`docs/usage.md#documentation-surfaces`](./docs/usage.md#documentation-surfaces) |
 | Full configuration reference | [`docs/configuration.md`](./docs/configuration.md) |
 | Deployment (systemd + DigitalOcean CI/CD) | [`docs/usage.md`](./docs/usage.md) |
 | Documentation automation workflow | [`docs/usage.md#automated-documentation-updates`](./docs/usage.md#automated-documentation-updates) |

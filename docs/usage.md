@@ -222,6 +222,22 @@ Whenever a non-documentation commit lands on `main`, the workflow
 reviews the changes and updates `README.md`, `ARCHITECTURE.md`, and the `docs/`
 directory.
 
+### Documentation surfaces
+
+The documentation update workflow treats these files as distinct documentation
+surfaces and uses their focus to decide what to update:
+
+| Location | Focus |
+|---|---|
+| `README.md` | Repository front page: quick start, local run/test commands, admin CLI overview, and links into the deeper docs |
+| `ARCHITECTURE.md` | Root-level pointer that redirects readers to the detailed architecture and extension docs in `docs/` |
+| `docs/index.rst` | Sphinx landing page and navigation tree for the published documentation site |
+| `docs/usage.md` | Operational guide: project layout, local usage, systemd setup, deployment workflows, documentation automation, and admin CLI/TUI procedures |
+| `docs/configuration.md` | Full YAML configuration reference, defaults, and watcher/action option semantics |
+| `docs/architecture.md` | System design, module map, startup/data-flow description, and future extension ideas |
+| `docs/extending.md` | Contributor guide for adding new watchers and actions |
+| `docs/api/index.rst` | Generated API reference entry point for autodoc-exposed modules |
+
 ### How it works
 
 ```
@@ -231,18 +247,20 @@ push to main (non-doc files only)
 [update-docs job]  (.github/workflows/update-docs.yml)
     1. Finds the last commit whose message contains "[documentation]"
     2. Installs @github/copilot via npm
-    3. Runs: copilot -p "…review commits since <sha>…update docs…"
-    4. Agent commits updated docs with "[documentation]" in the message
-    5. Fetches `origin/main` and records the remote SHA before pushing
-    6. Fails if the agent did not create a new commit
-    7. Refuses to push unless the local doc commit is a descendant of current `origin/main`
-    8. Pushes `HEAD:main`, then verifies that `origin/main` actually advanced
+    3. Runs the agent against the git log since that commit (or the whole repo if no prior `[documentation]` commit exists)
+    4. Agent reviews the codebase's documentation locations and the focus of each documentation type before editing docs
+    5. Agent is limited to standalone `git` and `pytest` commands; it cannot chain shell commands or use helper commands such as `python`, `grep`, or `find`
+    6. Agent commits updated docs with "[documentation]" in the message
+    7. Fetches `origin/main` and records the remote SHA before pushing
+    8. Fails if the agent did not create a new commit
+    9. Refuses to push unless the local doc commit is a descendant of current `origin/main`
+    10. Pushes `HEAD:main`, then verifies that `origin/main` actually advanced
     │
     │  on: workflow_run (completed + success)
     ▼
 [Docs build & deploy job]  (.github/workflows/docs.yml)
-    9. Builds Sphinx HTML from the agent's updated docs/
-    10. Publishes the HTML to GitHub Pages
+    11. Builds Sphinx HTML from the agent's updated docs/
+    12. Publishes the HTML to GitHub Pages
 ```
 
 The Docs workflow (`.github/workflows/docs.yml`) listens for the
@@ -257,6 +275,11 @@ Self-triggering of `update-docs.yml` is prevented by two mechanisms:
   the workflow.
 - **`if` condition** — the job is skipped when the head commit message already
   contains `[documentation]` (i.e. the agent's own commit).
+
+The agent prompt also intentionally constrains shell usage. By limiting the
+agent to standalone `git` and `pytest` commands, the workflow keeps the review
+focused on repository history, test results, and documentation edits rather
+than arbitrary shell scripting.
 
 The workflow also includes explicit push-safety guards before publishing the
 agent's commit back to `main`:
