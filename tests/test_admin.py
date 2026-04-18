@@ -222,11 +222,11 @@ actions:
     def test_valid_config_passes(self) -> None:
         validate_service_config(self._VALID_YAML)  # must not raise
 
-    def test_invalid_yaml_raises_click_exception(self) -> None:
+    def test_invalid_yaml_raises_validation_error(self) -> None:
         with pytest.raises(ConfigValidationError, match="YAML parse error"):
             validate_service_config("key: [unclosed")
 
-    def test_invalid_direction_raises_click_exception(self) -> None:
+    def test_invalid_direction_raises_validation_error(self) -> None:
         bad = self._VALID_YAML.replace('direction: "yes"', 'direction: "INVALID"')
         with pytest.raises(ConfigValidationError, match="Config validation failed"):
             validate_service_config(bad)
