@@ -17,8 +17,8 @@ from polymarket_watcher.admin.admin_config import (
     AdminConfig,
     default_config_path,
 )
-from polymarket_watcher.admin.cli import _validate_service_config
 from polymarket_watcher.admin.editor import find_editor
+from polymarket_watcher.admin.validator import ConfigValidationError, validate_service_config
 
 
 # ---------------------------------------------------------------------------
@@ -220,20 +220,16 @@ actions:
 """
 
     def test_valid_config_passes(self) -> None:
-        _validate_service_config(self._VALID_YAML)  # must not raise
+        validate_service_config(self._VALID_YAML)  # must not raise
 
-    def test_invalid_yaml_raises_click_exception(self) -> None:
-        import click
+    def test_invalid_yaml_raises_validation_error(self) -> None:
+        with pytest.raises(ConfigValidationError, match="YAML parse error"):
+            validate_service_config("key: [unclosed")
 
-        with pytest.raises(click.ClickException, match="YAML parse error"):
-            _validate_service_config("key: [unclosed")
-
-    def test_invalid_direction_raises_click_exception(self) -> None:
-        import click
-
+    def test_invalid_direction_raises_validation_error(self) -> None:
         bad = self._VALID_YAML.replace('direction: "yes"', 'direction: "INVALID"')
-        with pytest.raises(click.ClickException, match="Config validation failed"):
-            _validate_service_config(bad)
+        with pytest.raises(ConfigValidationError, match="Config validation failed"):
+            validate_service_config(bad)
 
     def test_does_not_use_price_support_config(self) -> None:
         """PriceSupportConfig was removed; the validator must not import it."""
@@ -245,4 +241,4 @@ actions:
         )
 
     def test_empty_yaml_uses_defaults(self) -> None:
-        _validate_service_config("")  # empty file → all defaults → must not raise
+        validate_service_config("")  # empty file → all defaults → must not raise
