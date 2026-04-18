@@ -73,5 +73,35 @@ jobs:
           When committing your documentation changes, include the tag [documentation] in the commit message \
           so that the next agent run can use it as the reference point for the last documentation update." \
           --allow-tool='shell(git:*)' \
+          --allow-tool='shell(pytest:*)' \
           --allow-tool=write \
           --no-ask-user
+
+      - name: Push documentation commit to main (safe)
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          REMOTE_BEFORE_SHA="$(git rev-parse origin/main)"
+          LOCAL_SHA="$(git rev-parse HEAD)"
+
+          # No-op guard: fail if the agent did not create any new commit.
+          if [ "$LOCAL_SHA" = "$REMOTE_BEFORE_SHA" ]; then
+            echo "No new documentation commit was created; nothing to push to main."
+            exit 1
+          fi
+
+          # Safety check: only allow a fast-forward style push from current main.
+          if ! git merge-base --is-ancestor "$REMOTE_BEFORE_SHA" "$LOCAL_SHA"; then
+            echo "Refusing to push: local HEAD is not a descendant of origin/main."
+            exit 1
+          fi
+
+          git push origin HEAD:main
+
+          git fetch origin main
+          REMOTE_AFTER_SHA="$(git rev-parse origin/main)"
+          if [ "$REMOTE_AFTER_SHA" = "$REMOTE_BEFORE_SHA" ]; then
+            echo "Push did not update origin/main; failing job."
+            exit 1
+          fi
