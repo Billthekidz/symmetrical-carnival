@@ -18,11 +18,11 @@ import textwrap
 from pathlib import Path
 
 import click
-import yaml
 
 from .admin_config import AdminConfig, default_config_path
 from .editor import open_editor
 from .ssh import scp_upload, ssh_run
+from .validator import ConfigValidationError, validate_service_config
 
 
 _LEGACY_REMOTE_CONFIG_PATH = "/opt/polymarket-watcher/config.yaml"
@@ -43,48 +43,14 @@ def _load_cfg(config_file: str | None) -> AdminConfig:
 def _validate_service_config(yaml_text: str) -> None:
     """Parse *yaml_text* and instantiate Config dataclasses to validate it.
 
-    Raises ``click.ClickException`` on any error.
+    Delegates to :func:`~.validator.validate_service_config` and re-raises any
+    :class:`~.validator.ConfigValidationError` as a ``click.ClickException`` so
+    that click formats and displays the message correctly.
     """
     try:
-        data = yaml.safe_load(yaml_text) or {}
-    except yaml.YAMLError as exc:
-        raise click.ClickException(f"YAML parse error: {exc}") from exc
-
-    # Re-use the existing service Config dataclasses for schema validation
-    try:
-        from polymarket_watcher.config import (
-            AccountConfig,
-            ActionsConfig,
-            BidFloorConfig,
-            Config,
-            MarketConfig,
-            ServiceConfig,
-            ValueConfig,
-            WatcherConfig,
-        )
-
-        market_data = data.get("market", {})
-        watcher_data = data.get("watcher", {})
-        service_data = data.get("service", {})
-        actions_data = data.get("actions", {})
-        account_data = data.get("account", {})
-        bf_data = watcher_data.get("bid_floor", {})
-        val_data = watcher_data.get("value", {})
-
-        Config(
-            account=AccountConfig(**account_data),
-            market=MarketConfig(**market_data),
-            watcher=WatcherConfig(
-                bid_floor=BidFloorConfig(**bf_data),
-                value=ValueConfig(**val_data),
-            ),
-            service=ServiceConfig(**service_data),
-            actions=ActionsConfig(
-                log_enabled=actions_data.get("log", {}).get("enabled", True)
-            ),
-        )
-    except Exception as exc:
-        raise click.ClickException(f"Config validation failed: {exc}") from exc
+        validate_service_config(yaml_text)
+    except ConfigValidationError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _candidate_remote_config_paths(remote_config: str) -> list[str]:
