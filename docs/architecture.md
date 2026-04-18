@@ -27,10 +27,11 @@ flowchart TD
     subgraph actions["Actions"]
         BFW -->|alert payload| LA[LogAction\nstdout placeholder]
         VW -->|alert payload| LA
+        BFW -->|alert payload| DA[DiscordAction\nwebhook wrapper]
+        VW -->|alert payload| DA
+        DA -->|HTTP POST| DI[integrations.discord\nwebhook HTTP logic]
         BFW -.->|alert payload| FA1[SMSAction\n🔮 future]
-        BFW -.->|alert payload| FA2[DiscordAction\n🔮 future]
         VW -.->|alert payload| FA1
-        VW -.->|alert payload| FA2
     end
 
     style startup fill:#f0f4ff,stroke:#aac
@@ -56,13 +57,17 @@ polymarket_watcher/
 │   ├── editor.py          ← cross-platform editor selection ($EDITOR / VS Code / nano)
 │   ├── ssh.py             ← ssh/scp subprocess helpers
 │   └── tui.py             ← streaming log viewer (journalctl -f over SSH)
+├── integrations/          ← vendor-specific HTTP / protocol logic
+│   └── discord.py         ← Discord webhook: payload building + HTTP transport
 ├── watchers/
 │   ├── base_watcher.py          ← abstract BaseWatcher
 │   ├── bid_floor_watcher.py     ← alerts when bid-floor volume is insufficient
 │   └── value_watcher.py         ← fires escalating alerts on position value loss
 └── actions/
-    ├── base_action.py    ← abstract BaseAction
-    └── log_action.py     ← placeholder: logs alert payload to stdout
+    ├── base_action.py       ← abstract BaseAction (public plugin interface)
+    ├── log_action.py        ← placeholder: logs alert payload to stdout
+    └── discord_action.py    ← slim wrapper: reads DISCORD_WEBHOOK_URL from env,
+                               delegates to integrations.discord
 ```
 
 ## Data Flow

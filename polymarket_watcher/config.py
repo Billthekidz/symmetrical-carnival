@@ -84,10 +84,23 @@ class ServiceConfig:
 
 
 @dataclass
+class DiscordActionConfig:
+    """Configuration for the Discord outbound webhook action.
+
+    The webhook URL is *not* stored here — it is read from the
+    ``DISCORD_WEBHOOK_URL`` environment variable so that ``config.yaml``
+    remains safe to version-control.  See ``secrets.env.example``.
+    """
+
+    enabled: bool = False
+
+
+@dataclass
 class ActionsConfig:
     """Toggle individual notification actions."""
 
     log_enabled: bool = True
+    discord: DiscordActionConfig = field(default_factory=DiscordActionConfig)
 
 
 @dataclass
@@ -132,6 +145,9 @@ class Config:
             ),
             service=ServiceConfig(**service_data),
             actions=ActionsConfig(
-                log_enabled=actions_data.get("log", {}).get("enabled", True)
+                log_enabled=actions_data.get("log", {}).get("enabled", True),
+                discord=DiscordActionConfig(
+                    enabled=actions_data.get("discord", {}).get("enabled", False),
+                ),
             ),
         )

@@ -40,32 +40,51 @@ That's it — no other file needs to change.
 
 ## How to Add a New Action
 
-1. **Create a module** in `polymarket_watcher/actions/`, e.g.
-   `discord_action.py`.
+New notification channels follow a two-layer pattern that keeps vendor-specific
+HTTP/protocol logic separate from the action protocol used by the rest of the
+codebase:
 
-2. **Subclass `BaseAction`**:
+| Layer | Location | Responsibility |
+|---|---|---|
+| Integration module | `polymarket_watcher/integrations/<vendor>.py` | All vendor HTTP details: payload shape, retries, error handling |
+| Action wrapper | `polymarket_watcher/actions/<vendor>_action.py` | Subclasses `BaseAction`; reads config/env; delegates to the integration |
 
-   ```python
-   import httpx
-   from .base_action import BaseAction
-   from typing import Any
+### Example: Discord webhook action (already implemented)
 
-   class DiscordAction(BaseAction):
-       def __init__(self, webhook_url: str) -> None:
-           self._webhook_url = webhook_url
+**Step 1 — Integration module** (`polymarket_watcher/integrations/discord.py`)
 
-       @property
-       def name(self) -> str:
-           return "DiscordAction"
+Owns everything Discord-specific: building the message content, POSTing to the
+webhook URL, and handling transport errors without crashing the service.
 
-       def execute(self, event_data: dict[str, Any]) -> None:
-           content = f"🚨 **{event_data['watcher']}** alert\n```json\n{event_data}\n```"
-           httpx.post(self._webhook_url, json={"content": content})
-   ```
+**Step 2 — Action wrapper** (`polymarket_watcher/actions/discord_action.py`)
 
-3. **Wire the action** — in `WatcherService._build_watchers()`, add it to the
-   `actions` list:
+A thin `DiscordAction(BaseAction)` subclass.  Its `__init__` reads
+`DISCORD_WEBHOOK_URL` from the environment (injected via the systemd
+`EnvironmentFile`) and raises `EnvironmentError` on startup if it is missing,
+so misconfiguration is caught immediately.  `execute(event_data)` simply calls
+`integrations.discord.send_webhook(webhook_url, event_data)`.
 
-   ```python
-   actions = [LogAction(), DiscordAction(webhook_url=cfg.actions.discord.webhook_url)]
-   ```
+**Step 3 — Config toggle** (`config.py` + `config.yaml`)
+
+Add an `enabled` boolean under `actions`:
+
+```yaml
+actions:
+  discord:
+    enabled: true
+```
+
+**Step 4 — Wire in `service.py`**
+
+```python
+if cfg.actions.discord.enabled:
+    actions.append(DiscordAction())
+```
+
+### Adding a brand-new integration (e.g. Telegram)
+
+1. Create `polymarket_watcher/integrations/telegram.py` with a `send_message(token, chat_id, event_data)` function.
+2. Create `polymarket_watcher/actions/telegram_action.py` — subclass `BaseAction`, read `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from env, delegate to step 1.
+3. Add `TelegramActionConfig(enabled: bool = False)` to `config.py` and a matching YAML key.
+4. Add `TELEGRAM_BOT_TOKEN=…` and `TELEGRAM_CHAT_ID=…` to `/etc/polymarket-watcher/secrets.env`.
+5. Wire the action in `service.py`.

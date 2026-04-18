@@ -15,6 +15,12 @@ Group=polymarket-watcher
 # Adjust WorkingDirectory and ExecStart to match your installation path.
 WorkingDirectory=/opt/polymarket-watcher/current
 
+# Runtime secrets (DISCORD_WEBHOOK_URL, etc.) are injected from a separate
+# file that is NOT committed to version control.  The leading '-' means
+# systemd will silently skip this directive if the file does not exist,
+# so the service still starts when Discord alerts are disabled.
+EnvironmentFile=-/etc/polymarket-watcher/secrets.env
+
 # Point to the Python interpreter inside the virtual environment, if used.
 ExecStart=/opt/polymarket-watcher/.venv/bin/python \
     -m polymarket_watcher \

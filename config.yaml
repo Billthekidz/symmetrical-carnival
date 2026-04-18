@@ -59,3 +59,11 @@ actions:
   log:
     enabled: true   # Log detected events to stdout (placeholder for richer actions)
 
+  # ── Discord outbound webhook ────────────────────────────────────────────────
+  # Sends an alert message to a Discord channel when a watcher fires.
+  # The webhook URL is NOT stored here — place it in the secrets file:
+  #   /etc/polymarket-watcher/secrets.env  (DISCORD_WEBHOOK_URL=https://…)
+  # See secrets.env.example for the template.
+  discord:
+    enabled: false
+

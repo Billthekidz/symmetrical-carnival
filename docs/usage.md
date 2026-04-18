@@ -18,15 +18,19 @@ symmetrical-carnival/
 │   │   ├── editor.py          ← Windows-friendly editor selection
 │   │   ├── ssh.py             ← ssh/scp subprocess helpers
 │   │   └── tui.py             ← Textual streaming log viewer
+│   ├── integrations/          ← vendor-specific HTTP / protocol logic
+│   │   └── discord.py         ← Discord webhook: payload + HTTP transport
 │   ├── watchers/
 │   │   ├── base_watcher.py          ← abstract BaseWatcher
 │   │   ├── bid_floor_watcher.py     ← monitors bid-side support beneath entry price
 │   │   └── value_watcher.py         ← fires escalating alerts on position value loss
 │   └── actions/
-│       ├── base_action.py    ← abstract BaseAction
-│       └── log_action.py     ← default: log alert to stdout
+│       ├── base_action.py    ← abstract BaseAction (public plugin interface)
+│       ├── log_action.py     ← default: log alert to stdout
+│       └── discord_action.py ← slim wrapper: reads env, delegates to integrations/
 ├── tests/                     ← unit tests (pytest)
-├── config.yaml                ← sample configuration
+├── config.yaml                ← sample configuration (safe to version-control)
+├── secrets.env.example        ← template for /etc/polymarket-watcher/secrets.env
 └── polymarket-watcher.service ← systemd unit file
 ```
 
@@ -77,14 +81,21 @@ sudo /opt/polymarket-watcher/.venv/bin/pip install -r /opt/polymarket-watcher/cu
 sudo mkdir -p /etc/polymarket-watcher
 sudo cp config.yaml /etc/polymarket-watcher/config.yaml
 
-# 4. Install the unit file
+# 4. Install the secrets file (only needed when Discord alerts are enabled)
+sudo install -o root -g polymarket-watcher -m 0640 \
+    secrets.env.example /etc/polymarket-watcher/secrets.env
+# Edit the file and set DISCORD_WEBHOOK_URL to your real webhook URL.
+# Leave the file empty / skip this step if discord.enabled is false.
+sudo nano /etc/polymarket-watcher/secrets.env
+
+# 5. Install the unit file
 sudo cp polymarket-watcher.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# 5. Enable and start
+# 6. Enable and start
 sudo systemctl enable --now polymarket-watcher
 
-# 6. Follow logs
+# 7. Follow logs
 journalctl -u polymarket-watcher -f
 ```
 
@@ -160,6 +171,15 @@ chown root:polymarket-watcher /etc/polymarket-watcher/config.yaml
 chmod 640 /etc/polymarket-watcher/config.yaml
 chown root:polymarket-watcher /etc/polymarket-watcher
 chmod 750 /etc/polymarket-watcher
+
+# 4b. Install the secrets file (only needed when Discord alerts are enabled).
+#     The leading '-' in the systemd EnvironmentFile directive means the
+#     service still starts cleanly if this file does not exist.
+install -o root -g polymarket-watcher -m 0640 \
+    /path/to/symmetrical-carnival/secrets.env.example \
+    /etc/polymarket-watcher/secrets.env
+# Edit and set DISCORD_WEBHOOK_URL to the real value.
+nano /etc/polymarket-watcher/secrets.env
 
 # 5. Install the systemd unit file
 #    The unit file's WorkingDirectory / ExecStart must point to "current":

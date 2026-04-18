@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from .actions.base_action import BaseAction
+from .actions.discord_action import DiscordAction
 from .actions.log_action import LogAction
 from .config import Config
 from .market_resolver import get_token_ids_for_slug
@@ -43,7 +44,9 @@ class WatcherService:
     async def run(self) -> None:
         """Resolve positions, build watchers, and start the event loop."""
         cfg = self._config
-        actions = [LogAction()] if cfg.actions.log_enabled else []
+        actions: list[BaseAction] = [LogAction()] if cfg.actions.log_enabled else []
+        if cfg.actions.discord.enabled:
+            actions.append(DiscordAction())
 
         if cfg.account.proxy_wallet:
             # ── Primary path: auto-discover positions from the wallet ──
