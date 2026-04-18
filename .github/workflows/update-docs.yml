@@ -69,6 +69,9 @@ jobs:
           Review the git log ${SINCE_REF}. \
           Analyze the codebase and find locations of documentation (including README.md and docs/). \
           Note the focus of each documentation type. \
+          Command policy: you may run only standalone git and pytest commands. \
+          Do not chain commands with &&, ;, or pipes, and do not call printf, python, sphinx-build, find, grep, or other shell commands. \
+          If you need multiple checks, run them as separate allowed commands. \
           Based on the changes to main, update the documentation accordingly. \
           When committing your documentation changes, include the tag [documentation] in the commit message \
           so that the next agent run can use it as the reference point for the last documentation update." \
