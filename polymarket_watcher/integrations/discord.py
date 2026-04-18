@@ -22,22 +22,34 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Discord caps message content at 2 000 characters; stay well under that.
-_MAX_CONTENT_CHARS = 1800
+# Discord caps message content at 2 000 characters.  We stay 200 chars under
+# that limit to leave headroom for Discord's own processing.
+_SAFE_CONTENT_LIMIT = 1800
 
 # Timeout for the outbound HTTP request (connect, read).
 _REQUEST_TIMEOUT = (5, 10)
+
+# Named constants for emoji and markdown overhead so the truncation maths is
+# self-documenting.
+_WARNING_EMOJI = "\u26a0\ufe0f"  # ⚠️
+
+# Characters consumed by the code-fence wrapper and "… (truncated)" suffix
+# that are not part of the JSON body itself:
+#   ```json\n … \n```  → ~12 chars
+#   … (truncated)\n    → ~16 chars
+#   2 × newline        → ~2 chars
+_MARKDOWN_OVERHEAD = 30
 
 
 def _build_content(event_data: dict[str, Any]) -> str:
     """Render *event_data* as a compact Discord message string."""
     watcher = event_data.get("watcher", "Unknown watcher")
-    header = f"\u26a0\ufe0f **{watcher}** alert"
+    header = f"{_WARNING_EMOJI} **{watcher}** alert"
     body = json.dumps(event_data, indent=2, default=str)
     message = f"{header}\n```json\n{body}\n```"
-    if len(message) > _MAX_CONTENT_CHARS:
+    if len(message) > _SAFE_CONTENT_LIMIT:
         # Truncate the JSON body to fit within Discord's limit.
-        truncated = body[: _MAX_CONTENT_CHARS - len(header) - 30]
+        truncated = body[: _SAFE_CONTENT_LIMIT - len(header) - _MARKDOWN_OVERHEAD]
         message = f"{header}\n```json\n{truncated}\n… (truncated)\n```"
     return message
 
